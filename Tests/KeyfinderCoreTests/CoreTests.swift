@@ -1,5 +1,5 @@
 import Foundation
-@testable import KeyfinderCore
+import KeyfinderCore
 
 final class CoreTests {
     func testBundledLayoutAndNullTransparencyMatchGeneratedFirmware() throws {
