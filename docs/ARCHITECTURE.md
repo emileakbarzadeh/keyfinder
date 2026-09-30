@@ -44,7 +44,9 @@ The resolver compares action semantics, including tap/hold gestures and macros. 
 
 ## Window lifecycle and performance
 
-`Theme.swift` defines the interface colors in sRGB: blue `#003049`, red `#D62828`, orange `#F77F00`, and parchment `#F4F3EE`. Orange controls use blue text; red unverified-revision badges use parchment text. Oryx key colors remain optional and are tinted over the blue background so legends stay readable.
+`Theme.swift` defines two neutral palettes in sRGB: charcoal `#111315` for dark mode and parchment `#F4F3EE` for light mode, with bright orange `#F77F00` and red `#D62828` accents. Orange controls use charcoal text; red unverified-revision badges use parchment text. Optional Oryx colors tint the keycaps while labels retain the theme’s text colors.
+
+The persisted appearance preference defaults to System, which inherits macOS appearance. Light and Dark override window appearance explicitly. Dynamic colors update SwiftUI, and `viewDidChangeEffectiveAppearance` invalidates the static AppKit keyboard when needed. Theme changes use native appearance propagation; they add no observers, polling, or timers. Older preferences retain their existing values and default to System.
 
 The overlay cannot become the key or main window and passes clicks through. Dragging is enabled only during an explicit arrangement preview. It joins desktop Spaces and fullscreen environments; a missing display falls back to the main display.
 

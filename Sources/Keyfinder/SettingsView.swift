@@ -15,7 +15,7 @@ struct SettingsView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 13) {
-                Image(systemName: "keyboard").font(.system(size: 26, weight: .medium)).foregroundStyle(Color(nsColor: Theme.blue))
+                Image(systemName: "keyboard").font(.system(size: 26, weight: .medium)).foregroundStyle(Color(nsColor: Theme.ink))
                     .frame(width: 52, height: 52).background(Color(nsColor: Theme.orange), in: RoundedRectangle(cornerRadius: 13))
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Keyfinder").font(.title2.weight(.semibold))
@@ -42,12 +42,12 @@ struct SettingsView: View {
             }.padding(18).frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(minWidth: 920, minHeight: 780)
-        .background(Color(nsColor: Theme.blue))
-        .foregroundStyle(Color(nsColor: Theme.parchment))
+        .background(Color(nsColor: Theme.background))
+        .foregroundStyle(Color(nsColor: Theme.text))
         .tint(Color(nsColor: Theme.orange))
         .buttonStyle(PaletteButtonStyle())
         .toggleStyle(.switch)
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(model.preferences.appearance.colorScheme)
         .onAppear { urlText = model.preferences.layoutURL }
         .onChange(of: model.preferences.layoutURL) { oldValue, newValue in
             if urlText == oldValue { urlText = newValue }
@@ -89,6 +89,13 @@ struct SettingsView: View {
     private var appearanceTab: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
+                SettingsSection("Color theme") {
+                    PalettePicker(label: "Color theme", options: AppAppearance.allCases.map { ($0, $0.title) },
+                                  selection: preference(\.appearance))
+                        .frame(maxWidth: 330)
+                    Text("System follows macOS. The theme applies to Settings and the overlay.")
+                        .font(.caption).foregroundStyle(Color(nsColor: Theme.mutedText))
+                }
                 SettingsSection("Application") {
                     switchRow("Show menu bar icon", isOn: preference(\.showMenuBarIcon))
                     Text("When the icon is hidden, open Keyfinder from Applications or Spotlight to return to Settings. The overlay keeps working.").font(.caption).foregroundStyle(Color(nsColor: Theme.mutedText))
@@ -241,11 +248,11 @@ private struct PaletteButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .foregroundStyle(Color(nsColor: configuration.isPressed ? Theme.blue : Theme.orange))
+            .foregroundStyle(Color(nsColor: Theme.text))
             .padding(.horizontal, 12).padding(.vertical, 6)
-            .background(Color(nsColor: configuration.isPressed ? Theme.orange : Theme.blue), in: RoundedRectangle(cornerRadius: 7))
+            .background(Color(nsColor: configuration.isPressed ? Theme.key : Theme.surface), in: RoundedRectangle(cornerRadius: 7))
             .overlay(RoundedRectangle(cornerRadius: 7).stroke(Color(nsColor: Theme.border), lineWidth: 1))
-            .opacity(isEnabled ? 1 : 0.45)
+            .opacity(isEnabled ? (configuration.isPressed ? 0.75 : 1) : 0.45)
     }
 }
 
@@ -259,7 +266,7 @@ private struct PalettePicker<Value: Hashable>: View {
             ForEach(options, id: \.0) { value, title in
                 Button { selection = value } label: {
                     Text(title).font(.callout.weight(selection == value ? .semibold : .regular))
-                        .foregroundStyle(Color(nsColor: selection == value ? Theme.blue : Theme.parchment))
+                        .foregroundStyle(Color(nsColor: selection == value ? Theme.ink : Theme.text))
                         .lineLimit(1).frame(maxWidth: .infinity).padding(.vertical, 7)
                         .background(selection == value ? Color(nsColor: Theme.orange) : .clear, in: RoundedRectangle(cornerRadius: 7))
                         .contentShape(Rectangle())

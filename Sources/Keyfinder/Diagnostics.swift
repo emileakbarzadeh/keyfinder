@@ -9,18 +9,23 @@ import KeyfinderCore
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let geometry = try MoonlanderGeometry.load()
         let layers = LabelResolver.prepare(try LayoutSnapshot.bundled())
-        for index in layers.keys.sorted() {
-            let view = KeyboardView(geometry: geometry)
-            view.preview = true; view.presentedLayer = layers[index]
-            view.frame = NSRect(x: 0, y: 0, width: 1100, height: KeyboardView.height(forWidth: 1100))
-            try capture(view, to: directory.appendingPathComponent("layer-\(index).png"))
+        for mode in [AppAppearance.dark, .light] {
+            let suffix = mode == .light ? "-light" : ""
+            for index in layers.keys.sorted() {
+                let view = KeyboardView(geometry: geometry)
+                view.appearance = mode.appKit
+                view.preview = true; view.presentedLayer = layers[index]
+                view.frame = NSRect(x: 0, y: 0, width: 1100, height: KeyboardView.height(forWidth: 1100))
+                try capture(view, to: directory.appendingPathComponent("layer-\(index)\(suffix).png"))
+            }
+            let neutral = KeyboardView(geometry: geometry)
+            neutral.appearance = mode.appKit
+            neutral.presentedLayer = layers[1]; neutral.useKeyColors = false
+            neutral.unverified = true; neutral.selectedIndex = 1
+            neutral.frame = NSRect(x: 0, y: 0, width: 1100, height: KeyboardView.height(forWidth: 1100))
+            try capture(neutral, to: directory.appendingPathComponent("unverified-without-key-colors\(suffix).png"))
         }
-        let neutral = KeyboardView(geometry: geometry)
-        neutral.presentedLayer = layers[1]; neutral.useKeyColors = false
-        neutral.unverified = true; neutral.selectedIndex = 1
-        neutral.frame = NSRect(x: 0, y: 0, width: 1100, height: KeyboardView.height(forWidth: 1100))
-        try capture(neutral, to: directory.appendingPathComponent("unverified-without-key-colors.png"))
-        print("Rendered \(layers.count) layers to \(directory.path)")
+        print("Rendered \(layers.count) layers in light and dark mode to \(directory.path)")
     }
 
     static func capture(_ view: NSView, to url: URL) throws {
@@ -35,7 +40,7 @@ import KeyfinderCore
         let image = NSImage(size: NSSize(width: 1024, height: 1024))
         image.lockFocus()
         let background = NSBezierPath(roundedRect: NSRect(x: 62, y: 62, width: 900, height: 900), xRadius: 202, yRadius: 202)
-        NSGradient(starting: Theme.surface, ending: Theme.blue)?.draw(in: background, angle: -60)
+        NSGradient(starting: Theme.dark.key, ending: Theme.ink)?.draw(in: background, angle: -60)
         for row in 0..<3 {
             for col in 0..<3 {
                 let selected = row == 1 && col == 1
@@ -45,7 +50,7 @@ import KeyfinderCore
                 Theme.parchment.withAlphaComponent(0.24).setStroke(); key.lineWidth = 3; key.stroke()
                 if selected {
                     let mark = NSBezierPath(); mark.move(to: NSPoint(x: rect.minX + 49, y: rect.minY + 92)); mark.line(to: NSPoint(x: rect.minX + 80, y: rect.minY + 62)); mark.line(to: NSPoint(x: rect.minX + 133, y: rect.minY + 118))
-                    Theme.blue.setStroke(); mark.lineWidth = 15; mark.lineCapStyle = .round; mark.lineJoinStyle = .round; mark.stroke()
+                    Theme.ink.setStroke(); mark.lineWidth = 15; mark.lineCapStyle = .round; mark.lineJoinStyle = .round; mark.stroke()
                 }
             }
         }
@@ -94,13 +99,19 @@ import KeyfinderCore
                 window.contentView = NSHostingView(rootView: SettingsView(model: appModel))
                 focusWindow = window
                 NSApp.activate(ignoringOtherApps: true); window.makeKeyAndOrderFront(nil)
-                try await Task.sleep(for: .milliseconds(150))
-                if let view = window.contentView { try capture(view, to: reportURL.deletingLastPathComponent().appendingPathComponent("settings.png")) }
-                for page in [SettingsPage.appearance, .connection] {
-                    window.contentView = NSHostingView(rootView: SettingsView(model: appModel, initialPage: page))
-                    try await Task.sleep(for: .milliseconds(100))
-                    if let view = window.contentView { try capture(view, to: reportURL.deletingLastPathComponent().appendingPathComponent("settings-\(page == .appearance ? "appearance" : "connection").png")) }
+                for mode in [AppAppearance.dark, .light] {
+                    var preferences = appModel.preferences; preferences.appearance = mode
+                    appModel.setPreferences(preferences)
+                    let suffix = mode == .light ? "-light" : ""
+                    for page in SettingsPage.allCases {
+                        window.contentView = NSHostingView(rootView: SettingsView(model: appModel, initialPage: page))
+                        try await Task.sleep(for: .milliseconds(150))
+                        let name = page == .keyboard ? "settings" : page == .appearance ? "settings-appearance" : "settings-connection"
+                        if let view = window.contentView { try capture(view, to: reportURL.deletingLastPathComponent().appendingPathComponent("\(name)\(suffix).png")) }
+                    }
                 }
+                var automatic = appModel.preferences; automatic.appearance = .system
+                appModel.setPreferences(automatic)
                 window.makeKeyAndOrderFront(nil)
                 let previousKeyWindow = NSApp.keyWindow
                 let foregroundBeforeOverlay = NSWorkspace.shared.frontmostApplication?.processIdentifier
@@ -213,16 +224,25 @@ import KeyfinderCore
         var checks: [String: Bool] = [:]
         let suiteName = "io.keyfinder.lifecycle.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
-        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let originalAppearance = NSApp.appearance
+        defer {
+            defaults.removePersistentDomain(forName: suiteName)
+            NSApp.appearance = originalAppearance
+        }
 
         var original = Preferences()
         original.width = 1170; original.opacity = 0.72; original.useKeyColors = false
         original.layoutURL = "https://configure.zsa.io/moonlander/layouts/keyfinder-demo/v1/0"
         var legacy = try JSONSerialization.jsonObject(with: JSONEncoder().encode(original)) as! [String: Any]
         legacy.removeValue(forKey: "showMenuBarIcon")
+        legacy.removeValue(forKey: "appearance")
         defaults.set(try JSONSerialization.data(withJSONObject: legacy), forKey: "preferences")
         defaults.set(true, forKey: "hasLaunched")
-        checks["existing_preferences_survive_icon_setting_upgrade"] = Preferences.load(from: defaults) == original
+        checks["existing_preferences_survive_new_appearance_and_icon_settings"] = Preferences.load(from: defaults) == original
+
+        legacy["appearance"] = "future-theme"
+        let unknownTheme = try JSONDecoder().decode(Preferences.self, from: JSONSerialization.data(withJSONObject: legacy))
+        checks["unknown_theme_falls_back_without_resetting_preferences"] = unknownTheme == original
 
         func launch(background: Bool = false) -> (AppDelegate, AppModel, SimulatedKeyboard) {
             let monitor = SimulatedKeyboard()
@@ -243,10 +263,51 @@ import KeyfinderCore
             model.showOverlayPreview()
             checks["hiding_icon_keeps_monitor_and_overlay_active"] = delegate.statusItem?.isVisible == false && monitor.running && model.overlay.panel.isVisible
             checks["hidden_icon_preference_persists"] = !Preferences.load(from: defaults).showMenuBarIcon
+
+            delegate.openSettings()
+            func hasAppearance(_ name: NSAppearance.Name) -> Bool {
+                let views = [delegate.settingsWindow?.contentView, model.overlay.keyboardView]
+                return views.allSatisfy { $0?.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == name }
+            }
+            for mode in [AppAppearance.dark, .light] {
+                // An explicit choice must override the opposite inherited appearance.
+                NSApp.appearance = (mode == .dark ? AppAppearance.light : .dark).appKit
+                var preference = model.preferences; preference.appearance = mode
+                model.setPreferences(preference)
+                let expected: NSAppearance.Name = mode == .dark ? .darkAqua : .aqua
+                try await waitUntil { hasAppearance(expected) }
+                checks["\(mode.rawValue)_mode_updates_settings_and_visible_overlay"] = model.overlay.panel.isVisible
+                    && model.overlay.keyboardView.presentedLayer?.position == model.previewLayerIndex
+                    && delegate.settingsWindow?.appearance?.name == expected
+                checks["\(mode.rawValue)_appearance_preference_persists"] = Preferences.load(from: defaults).appearance == mode
+            }
+            var automatic = model.preferences; automatic.appearance = .system
+            model.setPreferences(automatic)
+            for mode in [AppAppearance.light, .dark] {
+                let drawCount = model.overlay.keyboardView.drawCount
+                NSApp.appearance = mode.appKit
+                let expected: NSAppearance.Name = mode == .dark ? .darkAqua : .aqua
+                try await waitUntil { hasAppearance(expected) && model.overlay.keyboardView.drawCount > drawCount }
+                checks["system_\(mode.rawValue)_appearance_redraws_visible_overlay"] = model.overlay.panel.appearance == nil
+                    && delegate.settingsWindow?.appearance == nil
+            }
+            model.endOverlayPreview()
+            try await Task.sleep(for: .milliseconds(100))
+            let hiddenDraws = model.overlay.keyboardView.drawCount
+            NSApp.appearance = AppAppearance.light.appKit
+            try await Task.sleep(for: .milliseconds(150))
+            checks["system_theme_change_keeps_hidden_overlay_idle"] = !model.overlay.panel.isVisible && model.overlay.keyboardView.drawCount == hiddenDraws
+            model.showOverlayPreview()
+            try await waitUntil { model.overlay.keyboardView.drawCount > hiddenDraws }
+            checks["overlay_shows_current_theme_after_hidden_appearance_change"] = hasAppearance(.aqua) && model.overlay.panel.isVisible
+            model.endOverlayPreview()
+            var light = model.preferences; light.appearance = .light
+            model.setPreferences(light)
         }
         do {
             let (delegate, model, _) = launch()
             defer { delegate.applicationWillTerminate(termination) }
+            checks["saved_appearance_applies_when_settings_reopens"] = model.preferences.appearance == .light && delegate.settingsWindow?.appearance?.name == .aqua
             checks["direct_launch_with_hidden_icon_opens_settings"] = delegate.statusItem?.isVisible == false && delegate.settingsWindow?.isVisible == true
             delegate.settingsWindow?.close()
             _ = delegate.applicationShouldHandleReopen(NSApp, hasVisibleWindows: false)

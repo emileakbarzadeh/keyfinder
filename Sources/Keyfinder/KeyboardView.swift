@@ -16,9 +16,19 @@ final class KeyboardView: NSView {
     var selectedIndex: Int? { didSet { needsDisplay = true } }
     var onSelect: ((Int) -> Void)?
     var onDragFinished: (() -> Void)?
+    var rendersContent = true {
+        didSet { if rendersContent && !oldValue { needsDisplay = true } }
+    }
     private(set) var drawCount = 0
     override var isFlipped: Bool { true }
     override var isOpaque: Bool { false }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        // The overlay requests a fresh draw when shown again. A hidden panel
+        // need not repaint its backing store for a system appearance change.
+        needsDisplay = rendersContent
+    }
 
     init(geometry: [KeyGeometry]) { self.geometry = geometry; super.init(frame: .zero) }
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
@@ -44,59 +54,63 @@ final class KeyboardView: NSView {
     }
 
     override func draw(_ dirtyRect: NSRect) {
+        // AppKit may invalidate even an ordered-out window on appearance changes.
+        guard rendersContent else { return }
         drawCount += 1
-        Theme.blue.setFill()
+        let colors = Theme.palette(for: effectiveAppearance)
+        colors.background.setFill()
         NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), xRadius: 19, yRadius: 19).fill()
-        Theme.border.setStroke()
+        colors.border.setStroke()
         let border = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), xRadius: 19, yRadius: 19)
         border.lineWidth = 1; border.stroke()
 
-        drawText(presentedLayer?.name ?? "Keyfinder", in: NSRect(x: 25, y: 18, width: bounds.width * 0.56, height: 25), size: 20, weight: .semibold, color: Theme.parchment, align: .left)
+        drawText(presentedLayer?.name ?? "Keyfinder", in: NSRect(x: 25, y: 18, width: bounds.width * 0.56, height: 25), size: 20, weight: .semibold, color: colors.text, align: .left)
         let subtitle = (presentedLayer.map { "\($0.layoutTitle)  /  Moonlander" } ?? "Moonlander") + (unverified ? "  ·  Unverified revision" : "")
-        drawText(subtitle, in: NSRect(x: 26, y: 43, width: bounds.width * 0.58, height: 15), size: 10, color: Theme.mutedText, align: .left)
+        drawText(subtitle, in: NSRect(x: 26, y: 43, width: bounds.width * 0.58, height: 15), size: 10, color: colors.mutedText, align: .left)
         let badge = unverified ? "UNVERIFIED" : arranging ? "DRAG TO POSITION" : preview ? "PREVIEW" : "LIVE"
         let badgeWidth: CGFloat = unverified ? 94 : arranging ? 126 : 69
         let badgeRect = NSRect(x: bounds.width - badgeWidth - 25, y: 22, width: badgeWidth, height: 24)
         (unverified ? Theme.red : Theme.orange).setFill(); NSBezierPath(roundedRect: badgeRect, xRadius: 7, yRadius: 7).fill()
-        drawText(badge, in: badgeRect.insetBy(dx: 3, dy: 6), size: 9, weight: .semibold, color: unverified ? Theme.parchment : Theme.blue)
+        drawText(badge, in: badgeRect.insetBy(dx: 3, dy: 6), size: 9, weight: .semibold, color: unverified ? Theme.parchment : Theme.ink)
 
         if let layer = presentedLayer {
             for key in geometry {
                 guard layer.keys.indices.contains(key.index) else { continue }
-                draw(key, presentation: layer.keys[key.index])
+                draw(key, presentation: layer.keys[key.index], colors: colors)
             }
             let legend = arranging ? "Drag the keyboard, then choose Done arranging in Settings." :
                 layer.ambiguousCount > 0 ? "↳  Inherited keys show alternatives when lower layers may differ." :
                 layer.inheritedCount > 0 ? "↳  Dimmed keys inherit their action from a lower layer." : "Tap actions are primary. Hold actions appear below."
-            drawText(legend, in: NSRect(x: 25, y: bounds.height - 23, width: bounds.width - 50, height: 13), size: 10, color: Theme.mutedText, align: .left)
+            drawText(legend, in: NSRect(x: 25, y: bounds.height - 23, width: bounds.width - 50, height: 13), size: 10, color: colors.mutedText, align: .left)
         } else {
-            drawText(message ?? "Waiting for the keyboard", in: NSRect(x: 35, y: 92, width: bounds.width - 70, height: max(60, bounds.height - 115)), size: 14, color: Theme.parchment)
+            drawText(message ?? "Waiting for the keyboard", in: NSRect(x: 35, y: 92, width: bounds.width - 70, height: max(60, bounds.height - 115)), size: 14, color: colors.text)
         }
     }
 
-    private func draw(_ key: KeyGeometry, presentation: PresentedKey) {
+    private func draw(_ key: KeyGeometry, presentation: PresentedKey, colors: Theme.Palette) {
         let path = path(for: key)
         let inherited = presentation.appearance == .inherited || presentation.appearance == .ambiguous
         let unknown = presentation.appearance == .unknown
         let accent = useKeyColors ? NSColor(hex: presentation.color) : nil
-        let fill = unknown ? Theme.blue : accent?.blended(withFraction: 0.85, of: Theme.blue) ?? (inherited ? Theme.surface : Theme.key)
+        let base = inherited ? colors.inheritedKey : colors.key
+        let fill = unknown ? colors.background : accent.map { Theme.tinted(base, with: $0, amount: 0.12) } ?? base
         fill.setFill(); path.fill()
-        (selectedIndex == key.index || unknown ? Theme.orange : (accent?.withAlphaComponent(0.70) ?? Theme.border)).setStroke()
+        (selectedIndex == key.index || unknown ? Theme.orange : (accent?.withAlphaComponent(0.70) ?? colors.border)).setStroke()
         path.lineWidth = selectedIndex == key.index ? 2 : 0.8; path.stroke()
         let point = center(for: key)
         NSGraphicsContext.saveGraphicsState()
         let transform = NSAffineTransform(); transform.translateX(by: point.x, yBy: point.y); transform.rotate(byDegrees: key.rotation); transform.concat()
         let width = key.width * unit - 9
         let height = key.height * unit - 8
-        let color = unknown ? Theme.orange : inherited ? Theme.mutedText : Theme.parchment
+        let color = unknown ? colors.accentText : inherited ? colors.mutedText : colors.text
         let baseSize = min(19, max(10, unit * 0.30))
         let y: CGFloat = presentation.secondary.isEmpty ? -baseSize * 0.68 : -height * 0.30
         drawText(presentation.label, in: NSRect(x: -width / 2, y: y, width: width, height: baseSize * 1.45), size: baseSize, weight: .medium, color: color, shrink: true)
         if !presentation.secondary.isEmpty {
-            drawText(presentation.secondary, in: NSRect(x: -width / 2 + 1, y: height * 0.13, width: width - 2, height: min(15, unit * 0.25)), size: min(10, unit * 0.185), color: Theme.mutedText, shrink: true)
+            drawText(presentation.secondary, in: NSRect(x: -width / 2 + 1, y: height * 0.13, width: width - 2, height: min(15, unit * 0.25)), size: min(10, unit * 0.185), color: colors.mutedText, shrink: true)
         }
         if inherited {
-            drawText("↳", in: NSRect(x: width / 2 - 11, y: -height / 2 + 1, width: 10, height: 10), size: 8, color: Theme.mutedText)
+            drawText("↳", in: NSRect(x: width / 2 - 11, y: -height / 2 + 1, width: 10, height: 10), size: 8, color: colors.mutedText)
         }
         NSGraphicsContext.restoreGraphicsState()
     }

@@ -10,11 +10,12 @@ struct Preferences: Codable, Equatable {
     var verticalPosition: Double = 0.035
     var useKeyColors = true
     var showMenuBarIcon = true
+    var appearance: AppAppearance = .system
 
     init() {}
 
     private enum CodingKeys: String, CodingKey {
-        case layoutURL, width, opacity, appearanceDelay, screenID, horizontalPosition, verticalPosition, useKeyColors, showMenuBarIcon
+        case layoutURL, width, opacity, appearanceDelay, screenID, horizontalPosition, verticalPosition, useKeyColors, showMenuBarIcon, appearance
     }
 
     init(from decoder: Decoder) throws {
@@ -29,6 +30,7 @@ struct Preferences: Codable, Equatable {
         verticalPosition = try values.decodeIfPresent(Double.self, forKey: .verticalPosition) ?? verticalPosition
         useKeyColors = try values.decodeIfPresent(Bool.self, forKey: .useKeyColors) ?? useKeyColors
         showMenuBarIcon = try values.decodeIfPresent(Bool.self, forKey: .showMenuBarIcon) ?? showMenuBarIcon
+        appearance = AppAppearance(rawValue: try values.decodeIfPresent(String.self, forKey: .appearance) ?? "") ?? .system
     }
 
     func clamped() -> Preferences {

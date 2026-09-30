@@ -37,6 +37,7 @@ import ServiceManagement
     private var layoutFailure: String?
     var onStatusChange: (() -> Void)?
     var onMenuBarVisibilityChange: ((Bool) -> Void)?
+    var onAppearanceChange: ((AppAppearance) -> Void)?
 
     init(geometry: [KeyGeometry], monitor: any KeyboardMonitoring, repository: LayoutRepository,
          defaults: UserDefaults = .standard, overlay: OverlayController) {
@@ -181,8 +182,10 @@ import ServiceManagement
         let value = value.clamped()
         guard preferences != value else { return }
         let visibilityChanged = preferences.showMenuBarIcon != value.showMenuBarIcon
+        let appearanceChanged = preferences.appearance != value.appearance
         preferences = value; value.save(to: defaults)
         if visibilityChanged { onMenuBarVisibilityChange?(value.showMenuBarIcon) }
+        if appearanceChanged { onAppearanceChange?(value.appearance) }
         synchronizeOverlay()
     }
     func chooseLayer(_ index: Int) {

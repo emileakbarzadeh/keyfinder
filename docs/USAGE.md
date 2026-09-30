@@ -12,7 +12,7 @@ The app identifier is `io.keyfinder.app`. Earlier development builds used a diff
 
 - Layer **0** hides the live overlay. Every other reported layer shows it, including layers added in later revisions.
 - **Keyboard** lets you select layers, click keys to inspect tap/hold actions, preview the overlay, and examine inherited keys.
-- **Appearance** controls size, opacity, key colors, display, position, and optional appearance delay. “Drag overlay into place” temporarily accepts clicks; “Done arranging” restores click-through behavior.
+- **Appearance** includes a **Color theme** selector: System (the default), Light, or Dark. System follows macOS automatically; an explicit choice persists across launches. Settings and the overlay use the same theme. This tab also controls size, opacity, key colors, display, position, and optional appearance delay. “Drag overlay into place” temporarily accepts clicks; “Done arranging” restores click-through behavior.
 - **Layout & connection** provides Oryx preview refresh, snapshot import/export, connection retry, and pause/resume.
 - **Pause** stops USB monitoring. **Quit** stops the app. The app's own launch-at-login option is off by default. Leave it off if the nix-darwin module manages startup.
 

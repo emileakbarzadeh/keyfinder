@@ -49,6 +49,7 @@ import KeyfinderCore
             statusItem.menu = menu
             model.onStatusChange = { [weak self] in self?.updateMenu() }
             model.onMenuBarVisibilityChange = { [weak self] visible in self?.statusItem?.isVisible = visible }
+            model.onAppearanceChange = { [weak self] appearance in self?.settingsWindow?.appearance = appearance.appKit }
             model.start()
             updateMenu()
             let launchEvent = NSAppleEventManager.shared().currentAppleEvent
@@ -79,8 +80,8 @@ import KeyfinderCore
         if settingsWindow == nil {
             let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1000, height: 820), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
             window.title = "Keyfinder"; window.isReleasedWhenClosed = false
-            window.backgroundColor = Theme.blue
-            window.appearance = NSAppearance(named: .darkAqua)
+            window.backgroundColor = Theme.background
+            window.appearance = model.preferences.appearance.appKit
             window.contentView = NSHostingView(rootView: SettingsView(model: model))
             window.minSize = NSSize(width: 940, height: 810)
             window.delegate = self
@@ -96,6 +97,7 @@ import KeyfinderCore
     func applicationWillTerminate(_ notification: Notification) {
         settingsWindow?.close()
         model?.onStatusChange = nil; model?.onMenuBarVisibilityChange = nil
+        model?.onAppearanceChange = nil
         model?.stop()
         if let statusItem { NSStatusBar.system.removeStatusItem(statusItem) }
         statusItem = nil

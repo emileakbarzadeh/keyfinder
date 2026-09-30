@@ -17,6 +17,7 @@ final class OverlayPanel: NSPanel {
 
     init(geometry: [KeyGeometry]) {
         keyboardView = KeyboardView(geometry: geometry)
+        keyboardView.rendersContent = false
         panel = OverlayPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         panel.title = "Keyfinder overlay"
         panel.isReleasedWhenClosed = false
@@ -38,6 +39,7 @@ final class OverlayPanel: NSPanel {
         generation += 1
         pendingAppearance?.cancel(); pendingAppearance = nil
         self.preferences = preferences
+        panel.appearance = preferences.appearance.appKit
         keyboardView.presentedLayer = layer
         keyboardView.message = message
         if keyboardView.preview != preview { keyboardView.preview = preview }
@@ -49,13 +51,13 @@ final class OverlayPanel: NSPanel {
         position()
         if panel.isVisible { return }
         if preferences.appearanceDelay == 0 || preview || arranging {
-            panel.orderFrontRegardless()
+            present()
         } else {
             let expected = generation
             let work = DispatchWorkItem { [weak self] in
                 guard let self, self.generation == expected else { return }
                 self.pendingAppearance = nil
-                self.panel.orderFrontRegardless()
+                self.present()
             }
             pendingAppearance = work
             DispatchQueue.main.asyncAfter(deadline: .now() + preferences.appearanceDelay, execute: work)
@@ -64,7 +66,12 @@ final class OverlayPanel: NSPanel {
 
     func hide() {
         generation += 1; pendingAppearance?.cancel(); pendingAppearance = nil
+        keyboardView.rendersContent = false
         if panel.isVisible { panel.orderOut(nil) }
+    }
+    private func present() {
+        keyboardView.rendersContent = true
+        panel.orderFrontRegardless()
     }
     func close() {
         hide()
