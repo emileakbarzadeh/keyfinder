@@ -46,6 +46,9 @@ struct SettingsView: View {
         .background(Color(nsColor: .windowBackgroundColor))
         .tint(.teal)
         .onAppear { urlText = model.preferences.layoutURL }
+        .onChange(of: model.preferences.layoutURL) { oldValue, newValue in
+            if urlText == oldValue { urlText = newValue }
+        }
     }
 
     private var keyboardTab: some View {
@@ -73,7 +76,7 @@ struct SettingsView: View {
             }.padding(14).frame(maxWidth: .infinity, alignment: .leading)
                 .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 12))
             HStack {
-                Text("\(model.previewSnapshot?.title ?? "Moonlander") · revision \(model.previewSnapshot?.revisionID ?? "—")")
+                Text(model.previewSnapshot?.isDemo == true ? "Keyfinder Demo · offline example" : "\(model.previewSnapshot?.title ?? "Moonlander") · revision \(model.previewSnapshot?.revisionID ?? "—")")
                 Spacer()
                 Text("Preview does not change your keyboard")
             }.font(.caption).foregroundStyle(.secondary)
@@ -144,20 +147,25 @@ struct SettingsView: View {
                 }
                 if model.connected && !model.identityVerified {
                     Button("Use preview revision for this keyboard (unverified)") { model.usePreviewForUnidentifiedKeyboard() }
+                        .disabled(model.previewSnapshot?.isDemo != false)
                 }
             }
             Section("Oryx layout") {
-                TextField("Layout URL", text: $urlText).textFieldStyle(.roundedBorder)
+                TextField("Layout URL", text: $urlText, prompt: Text("Paste a Moonlander layout URL from Oryx")).textFieldStyle(.roundedBorder)
                 HStack {
-                    Button(model.isRefreshing ? "Loading…" : "Load / refresh preview") { model.refreshLayout(url: urlText) }.disabled(model.isRefreshing)
+                    Button(model.isRefreshing ? "Loading…" : "Load / refresh preview") { model.refreshLayout(url: urlText) }
+                        .disabled(model.isRefreshing || urlText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     Button("Open in Oryx") {
-                        if let identity = model.previewSnapshot?.identity { NSWorkspace.shared.open(identity.url) }
-                    }
+                        if let url = model.previewOryxURL { NSWorkspace.shared.open(url) }
+                    }.disabled(model.previewOryxURL == nil)
                     Spacer()
                     Button("Import snapshot…", action: importFile)
                     Button("Export snapshot…", action: exportFile).disabled(model.previewSnapshot == nil)
                 }
                 if let notice = model.notice { Text(notice).font(.callout).foregroundStyle(.secondary).textSelection(.enabled) }
+                if model.previewSnapshot?.isDemo == true {
+                    Text("This offline demo is a synthetic example. Connect a Moonlander, paste an Oryx URL, or import a snapshot to use a real layout.").font(.callout).foregroundStyle(.secondary)
+                }
                 Text("The live overlay follows the revision installed on your keyboard. After flashing in Oryx, it updates when the keyboard reconnects. Refreshing here changes the preview.").font(.callout).foregroundStyle(.secondary)
             }
             Section("Performance") {

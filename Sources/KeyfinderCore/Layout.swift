@@ -104,6 +104,7 @@ public struct LayoutSnapshot: Codable, Equatable, Sendable {
         self.title = title; self.revisionID = revisionID; self.source = source
     }
     public var identity: LayoutIdentity { try! LayoutIdentity(layoutID: layoutID, revisionID: revisionID) }
+    public var isDemo: Bool { layoutID == "keyfinder-demo" && revisionID == "v1" }
     public var layers: [KeyboardLayer] {
         (source["layers"]?.array ?? []).compactMap { raw in
             guard let position = raw["position"]?.integer, let keys = raw["keys"]?.array else { return nil }
@@ -126,7 +127,7 @@ public struct LayoutSnapshot: Codable, Equatable, Sendable {
         return self
     }
     public static func bundled() throws -> LayoutSnapshot {
-        guard let url = CoreResources.bundle.url(forResource: "exampleLayout-exampleRevision", withExtension: "json") else { throw KeyfinderError.invalidLayout("bundled layout is missing.") }
+        guard let url = CoreResources.bundle.url(forResource: "DemoLayout", withExtension: "json") else { throw KeyfinderError.invalidLayout("bundled layout is missing.") }
         return try JSONDecoder().decode(Self.self, from: Data(contentsOf: url)).validated()
     }
 }

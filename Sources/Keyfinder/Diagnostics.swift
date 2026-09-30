@@ -78,6 +78,11 @@ import KeyfinderCore
                 appModel.start(observeSleep: false)
                 checks["starts_without_keyboard"] = !appModel.connected && !overlay.panel.isVisible
                 checks["offline_preview_has_72_keys"] = appModel.previewLayers[1]?.keys.count == 72
+                checks["first_launch_has_no_preset_oryx_profile"] = appModel.preferences.layoutURL.isEmpty && appModel.previewSnapshot?.isDemo == true && appModel.previewOryxURL == nil
+                monitor.emit(.connected(ConnectedKeyboard(name: "Moonlander", serial: "", productID: 0x1969)))
+                appModel.usePreviewForUnidentifiedKeyboard()
+                checks["demo_cannot_be_assigned_to_an_unknown_keyboard"] = appModel.installedRevision == nil
+                monitor.emit(.disconnected)
 
                 let window = NSWindow(contentRect: NSRect(x: 100, y: 100, width: 1000, height: 820), styleMask: [.titled, .closable], backing: .buffered, defer: false)
                 window.isReleasedWhenClosed = false
@@ -96,7 +101,7 @@ import KeyfinderCore
                 let foregroundBeforeOverlay = NSWorkspace.shared.frontmostApplication?.processIdentifier
                 checks["focus_test_has_foreground_application"] = foregroundBeforeOverlay != nil
 
-                monitor.emit(.connected(ConnectedKeyboard(name: "Moonlander", serial: "exampleLayout/exampleRevision", productID: 0x1969)))
+                monitor.emit(.connected(ConnectedKeyboard(name: "Moonlander", serial: "keyfinder-demo/v1", productID: 0x1969)))
                 monitor.emit(.layer(0))
                 try await Task.sleep(for: .milliseconds(100))
                 checks["typing_layer_hidden"] = !overlay.panel.isVisible
@@ -142,14 +147,14 @@ import KeyfinderCore
                 // Exercise actual AppModel/repository integration, not just the pure reducer.
                 let updated = try revision(of: snapshot, id: "testUpdated", replacementCode: "KC_F24")
                 await client.allow(updated)
-                monitor.emit(.connected(ConnectedKeyboard(name: "Moonlander", serial: "exampleLayout/exampleRevision", productID: 0x1969)))
+                monitor.emit(.connected(ConnectedKeyboard(name: "Moonlander", serial: "keyfinder-demo/v1", productID: 0x1969)))
                 monitor.emit(.layer(1))
                 try await waitUntil { overlay.keyboardView.presentedLayer?.revision == snapshot.revisionID }
-                appModel.refreshLayout()
+                appModel.refreshLayout(url: "https://configure.zsa.io/moonlander/layouts/\(snapshot.layoutID)/latest/0")
                 try await waitUntil { !appModel.isRefreshing }
                 checks["preview_refresh_does_not_change_installed_labels"] = appModel.previewSnapshot?.revisionID == updated.revisionID && overlay.keyboardView.presentedLayer?.keys[1].label == "F1"
                 monitor.emit(.disconnected)
-                monitor.emit(.connected(ConnectedKeyboard(name: "Moonlander", serial: "exampleLayout/testUpdated", productID: 0x1972)))
+                monitor.emit(.connected(ConnectedKeyboard(name: "Moonlander", serial: "keyfinder-demo/testUpdated", productID: 0x1972)))
                 monitor.emit(.layer(1))
                 try await waitUntil { overlay.keyboardView.presentedLayer?.revision == updated.revisionID }
                 checks["flash_reconnect_activates_matching_revision"] = overlay.keyboardView.presentedLayer?.keys[1].label == "F24"
@@ -157,7 +162,7 @@ import KeyfinderCore
                 checks["prefetched_revision_avoids_second_request"] = afterFlash == ["latest"]
 
                 monitor.emit(.disconnected)
-                monitor.emit(.connected(ConnectedKeyboard(name: "Moonlander", serial: "exampleLayout/missingRevision", productID: 0x1969)))
+                monitor.emit(.connected(ConnectedKeyboard(name: "Moonlander", serial: "keyfinder-demo/missingRevision", productID: 0x1969)))
                 monitor.emit(.layer(1))
                 try await waitUntil { appModel.status == "Layout unavailable" }
                 checks["uncached_offline_revision_never_shows_old_labels"] = overlay.panel.isVisible && overlay.keyboardView.presentedLayer == nil
@@ -167,16 +172,26 @@ import KeyfinderCore
                 let delayed = try revision(of: snapshot, id: "testDelayed", replacementCode: "KC_F23")
                 await client.block(delayed)
                 monitor.emit(.disconnected)
-                monitor.emit(.connected(ConnectedKeyboard(name: "Moonlander", serial: "exampleLayout/testDelayed", productID: 0x1969)))
+                monitor.emit(.connected(ConnectedKeyboard(name: "Moonlander", serial: "keyfinder-demo/testDelayed", productID: 0x1969)))
                 monitor.emit(.layer(1))
                 try await waitUntil { await client.hasPendingRequest }
                 monitor.emit(.disconnected)
-                monitor.emit(.connected(ConnectedKeyboard(name: "Moonlander", serial: "exampleLayout/exampleRevision", productID: 0x1969)))
+                monitor.emit(.connected(ConnectedKeyboard(name: "Moonlander", serial: "keyfinder-demo/v1", productID: 0x1969)))
                 monitor.emit(.layer(1))
                 try await waitUntil { overlay.keyboardView.presentedLayer?.revision == snapshot.revisionID }
                 await client.release()
                 try await Task.sleep(for: .milliseconds(75))
                 checks["late_response_cannot_overwrite_reconnected_layout"] = overlay.keyboardView.presentedLayer?.keys[1].label == "F1" && appModel.installedRevision == snapshot.revisionID
+                monitor.emit(.disconnected)
+                var freshPreferences = appModel.preferences; freshPreferences.layoutURL = ""
+                appModel.setPreferences(freshPreferences)
+                let demoFile = temporary.appendingPathComponent("demo.json")
+                try LayoutRepository.export(snapshot, to: demoFile)
+                appModel.importSnapshot(demoFile)
+                try await waitUntil { !appModel.isRefreshing && appModel.previewSnapshot?.isDemo == true }
+                monitor.emit(.connected(ConnectedKeyboard(name: "Moonlander", serial: "\(updated.layoutID)/\(updated.revisionID)", productID: 0x1969)))
+                try await waitUntil { appModel.previewSnapshot?.identity == updated.identity && appModel.preferences.layoutURL == updated.identity.url.absoluteString }
+                checks["first_identified_layout_populates_preview_and_oryx_url"] = appModel.previewOryxURL == updated.identity.url
                 monitor.emit(.disconnected)
                 checks.merge(try await checkApplicationLifecycle(geometry: geometry, snapshot: snapshot, directory: temporary)) { _, new in new }
             } catch { failure = error.localizedDescription }
@@ -197,7 +212,7 @@ import KeyfinderCore
 
         var original = Preferences()
         original.width = 1170; original.opacity = 0.72; original.useKeyColors = false
-        original.layoutURL = "https://configure.zsa.io/moonlander/layouts/exampleLayout/exampleRevision/0"
+        original.layoutURL = "https://configure.zsa.io/moonlander/layouts/keyfinder-demo/v1/0"
         var legacy = try JSONSerialization.jsonObject(with: JSONEncoder().encode(original)) as! [String: Any]
         legacy.removeValue(forKey: "showMenuBarIcon")
         defaults.set(try JSONSerialization.data(withJSONObject: legacy), forKey: "preferences")

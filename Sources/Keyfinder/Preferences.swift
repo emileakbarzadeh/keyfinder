@@ -1,7 +1,7 @@
 import Foundation
 
 struct Preferences: Codable, Equatable {
-    var layoutURL = "https://configure.zsa.io/moonlander/layouts/exampleLayout/latest/0"
+    var layoutURL = ""
     var width: Double = 920
     var opacity: Double = 0.94
     var appearanceDelay: Double = 0

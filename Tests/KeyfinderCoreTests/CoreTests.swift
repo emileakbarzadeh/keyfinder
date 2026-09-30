@@ -2,12 +2,13 @@ import Foundation
 import KeyfinderCore
 
 final class CoreTests {
-    func testBundledLayoutAndNullTransparencyMatchGeneratedFirmware() throws {
+    func testDemoLayoutHasCompleteGeometryAndTransparentKeys() throws {
         let layout = try LayoutSnapshot.bundled()
-        expectEqual(layout.identity, try LayoutIdentity(serial: "exampleLayout/exampleRevision"))
+        expectEqual(layout.identity, try LayoutIdentity(serial: "keyfinder-demo/v1"))
         expectEqual(layout.layers.map(\.keys.count), [72, 72, 72])
-        expectEqual(layout.layers.map { $0.keys.filter(\.isTransparent).count }, [0, 13, 52])
-        expectEqual(layout.layers.map(\.displayName), ["Layer 0", "Layer 1", "Layer 2"])
+        expectTrue(layout.isDemo)
+        expectEqual(layout.layers.map { $0.keys.filter(\.isTransparent).count }, [0, 29, 50])
+        expectEqual(layout.layers.map(\.displayName), ["Typing · 0", "Symbols · 1", "Navigation · 2"])
     }
     func testAllCurrentActionsHaveKnownLabels() throws {
         let layers = LabelResolver.prepare(try .bundled())
@@ -17,13 +18,13 @@ final class CoreTests {
         }
         expectEqual(layers[0]?.keys[55].label, ";")
         expectEqual(layers[0]?.keys[55].secondary, "Hold: Layer 2")
-        expectEqual(layers[0]?.keys[29].label, "Desktop")
-        expectEqual(layers[0]?.keys[29].secondary, "Hold: ⌃↑")
+        expectEqual(layers[0]?.keys[29].label, "Copy")
+        expectEqual(layers[0]?.keys[29].secondary, "Hold: ⌘V")
     }
     func testInheritanceDoesNotAssumeOnlyBaseIsActive() throws {
         let layers = LabelResolver.prepare(try .bundled())
         expectEqual(layers[1]?.keys[6].appearance, .inherited)
-        expectEqual(layers[1]?.keys[6].label, "←")
+        expectEqual(layers[1]?.keys[6].label, "[")
         expectEqual(layers[2]?.keys[1].appearance, .ambiguous)
         expectEqual(layers[2]?.keys[1].label, "1 / F1")
         expectTrue(layers[2]?.keys[1].detail.contains("Layer 1: Tap: F1") == true)
@@ -58,12 +59,12 @@ final class CoreTests {
         expectTrue(result.detail.contains("KC_B"))
     }
     func testURLParsingAndCacheIdentitySafety() throws {
-        let root = "https://configure.zsa.io/moonlander/layouts/exampleLayout"
+        let root = "https://configure.zsa.io/moonlander/layouts/keyfinder-demo"
         for suffix in ["", "/latest", "/latest/0", "/latest/0/"] {
-            expectEqual(try OryxLocation(url: root + suffix).layoutID, "exampleLayout")
+            expectEqual(try OryxLocation(url: root + suffix).layoutID, "keyfinder-demo")
             expectNil(try OryxLocation(url: root + suffix).revisionID)
         }
-        expectEqual(try OryxLocation(url: root + "/exampleRevision/2").revisionID, "exampleRevision")
+        expectEqual(try OryxLocation(url: root + "/v1/2").revisionID, "v1")
         for url in ["http://configure.zsa.io/moonlander/layouts/x", "https://evil.test/moonlander/layouts/x", "https://configure.zsa.io/voyager/layouts/x", "https://user@configure.zsa.io/moonlander/layouts/x"] {
             expectThrows(try OryxLocation(url: url), url)
         }
@@ -77,8 +78,8 @@ final class CoreTests {
         report[1] = 1; report[2] = 0; expectNil(OryxProtocol.decode(report))
         for code: UInt8 in [6, 7, 8, 42] { expectNil(OryxProtocol.decode(OryxProtocol.command(code))) }
         var firmware = OryxProtocol.command(0)
-        let serial = Array("exampleLayout/exampleRevision".utf8); firmware.replaceSubrange(1..<(serial.count + 1), with: serial); firmware[serial.count + 1] = 0xFE
-        expectEqual(OryxProtocol.decode(firmware), .firmware("exampleLayout/exampleRevision"))
+        let serial = Array("keyfinder-demo/v1".utf8); firmware.replaceSubrange(1..<(serial.count + 1), with: serial); firmware[serial.count + 1] = 0xFE
+        expectEqual(OryxProtocol.decode(firmware), .firmware("keyfinder-demo/v1"))
         var version = OryxProtocol.command(0xFE); version[1] = 5; version[2] = 0xFE
         expectEqual(OryxProtocol.decode(version), .protocolVersion(5))
     }
@@ -95,14 +96,14 @@ final class CoreTests {
         expectFalse(session.accept(snapshot, for: oldLease))
         let newLease = try require(session.lease)
         expectTrue(session.accept(snapshot, for: newLease))
-        session.identify(try LayoutIdentity(serial: "exampleLayout/newRevision"))
+        session.identify(try LayoutIdentity(serial: "keyfinder-demo/newRevision"))
         expectNil(session.snapshot)
         expectFalse(session.accept(snapshot, for: newLease))
     }
     func testVisibilityAndDuplicateLayers() throws {
         var session = LiveSession()
         expectFalse(session.setLayer(1))
-        session.connect(identity: try LayoutIdentity(serial: "exampleLayout/exampleRevision"))
+        session.connect(identity: try LayoutIdentity(serial: "keyfinder-demo/v1"))
         expectFalse(session.shouldShowOverlay)
         expectTrue(session.setLayer(0)); expectFalse(session.shouldShowOverlay)
         expectFalse(session.setLayer(0))
@@ -129,9 +130,9 @@ final class CoreTests {
         let snapshot = try LayoutSnapshot.bundled()
         let response: JSONValue = .object(["data": .object(["layout": .object(["title": .string(snapshot.title), "revision": snapshot.source])])])
         let data = try JSONEncoder().encode(response)
-        expectThrows(try OryxClient.decodeResponse(data, layoutID: "exampleLayout", revisionID: "different"))
-        expectEqual(try OryxClient.decodeResponse(data, layoutID: "exampleLayout", revisionID: "latest"), snapshot)
-        let invalid = LayoutSnapshot(layoutID: "exampleLayout", title: "Bad", revisionID: "exampleRevision", source: .object(["hashId": .string("exampleRevision"), "layers": .array([])]))
+        expectThrows(try OryxClient.decodeResponse(data, layoutID: "keyfinder-demo", revisionID: "different"))
+        expectEqual(try OryxClient.decodeResponse(data, layoutID: "keyfinder-demo", revisionID: "latest"), snapshot)
+        let invalid = LayoutSnapshot(layoutID: "keyfinder-demo", title: "Bad", revisionID: "v1", source: .object(["hashId": .string("v1"), "layers": .array([])]))
         expectThrows(try invalid.validated())
     }
 }

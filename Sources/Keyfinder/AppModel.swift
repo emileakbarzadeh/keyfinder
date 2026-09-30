@@ -143,6 +143,12 @@ import ServiceManagement
                 guard !Task.isCancelled, let self, self.session.accept(snapshot, for: lease) else { return }
                 self.layoutFailure = nil
                 self.liveLayers = LabelResolver.prepare(snapshot)
+                if self.preferences.layoutURL.isEmpty && !snapshot.isDemo {
+                    var preferences = self.preferences
+                    preferences.layoutURL = snapshot.identity.url.absoluteString
+                    self.setPreferences(preferences)
+                    self.setPreview(snapshot)
+                }
                 self.updateConnectedStatus()
                 self.synchronizeOverlay(); self.onStatusChange?()
             } catch {
@@ -184,6 +190,10 @@ import ServiceManagement
         if isPreviewingOverlay || isArranging { synchronizeOverlay() }
     }
     var selectedPreview: PresentedLayer? { previewLayers[previewLayerIndex] }
+    var previewOryxURL: URL? {
+        guard let snapshot = previewSnapshot, !snapshot.isDemo else { return nil }
+        return snapshot.identity.url
+    }
     var selectedKey: PresentedKey? {
         guard let index = selectedKeyIndex, let layer = selectedPreview, layer.keys.indices.contains(index) else { return nil }
         return layer.keys[index]
@@ -231,6 +241,11 @@ import ServiceManagement
             do {
                 let snapshot = try await repository.importSnapshot(from: url)
                 guard !Task.isCancelled, let self, self.previewGeneration == generation else { return }
+                if !snapshot.isDemo {
+                    var preferences = self.preferences
+                    preferences.layoutURL = snapshot.identity.url.absoluteString
+                    self.setPreferences(preferences)
+                }
                 self.setPreview(snapshot); self.isRefreshing = false
                 self.notice = "Imported revision \(snapshot.revisionID)."
                 if self.session.identity == snapshot.identity { self.loadInstalled() }
@@ -252,7 +267,7 @@ import ServiceManagement
     }
 
     func usePreviewForUnidentifiedKeyboard() {
-        guard session.connected, !identityVerified, let snapshot = previewSnapshot else { return }
+        guard session.connected, !identityVerified, let snapshot = previewSnapshot, !snapshot.isDemo else { return }
         session.identify(snapshot.identity); installedRevision = snapshot.revisionID
         loadInstalled()
     }

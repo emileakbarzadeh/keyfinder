@@ -27,9 +27,23 @@ func require<T>(_ value: T?, file: String = #filePath, line: Int = #line) throws
 
 @main enum CoreTestRunner {
     static func main() async {
+        let arguments = Array(CommandLine.arguments.dropFirst())
+        let liveLocation: OryxLocation?
+        do {
+            if arguments.isEmpty { liveLocation = nil }
+            else {
+                guard arguments.count == 2, arguments[0] == "--live-oryx" else { throw KeyfinderError.invalidURL }
+                let location = try OryxLocation(url: arguments[1])
+                guard location.revisionID != nil else { throw KeyfinderError.invalidIdentity }
+                liveLocation = location
+            }
+        } catch {
+            fputs("Usage: KeyfinderCoreChecks [--live-oryx <exact-revision Moonlander URL>]\n", stderr)
+            exit(2)
+        }
         let core = CoreTests()
         let tests: [(String, () throws -> Void)] = [
-            ("bundled layout and transparency", core.testBundledLayoutAndNullTransparencyMatchGeneratedFirmware),
+            ("demo layout and transparency", core.testDemoLayoutHasCompleteGeometryAndTransparentKeys),
             ("current action labels", core.testAllCurrentActionsHaveKnownLabels),
             ("stacked inheritance", core.testInheritanceDoesNotAssumeOnlyBaseIsActive),
             ("disabled and unknown keys", core.testDisabledUnknownAndTransparentStayDistinct),
@@ -50,12 +64,12 @@ func require<T>(_ value: T?, file: String = #filePath, line: Int = #line) throws
         do { try await RepositoryTests().testBundledAndCachedLayoutAvoidNetworkAndRefreshDoesNotReplaceIdentity() }
         catch { failures.append("Repository checks: \(error)") }
         var testCount = tests.count + 1
-        if CommandLine.arguments.contains("--live-oryx") {
+        if let location = liveLocation, let revision = location.revisionID {
             testCount += 1
             do {
-                let snapshot = try await OryxClient().fetch(layoutID: "exampleLayout", revisionID: "exampleRevision")
-                expectEqual(snapshot.identity, try LayoutIdentity(serial: "exampleLayout/exampleRevision"))
-                expectEqual(snapshot.layers.map(\.keys.count), [72, 72, 72])
+                let snapshot = try await OryxClient().fetch(layoutID: location.layoutID, revisionID: revision)
+                expectEqual(snapshot.identity, try LayoutIdentity(layoutID: location.layoutID, revisionID: revision))
+                expectTrue(!snapshot.layers.isEmpty && snapshot.layers.allSatisfy { $0.keys.count == 72 })
                 print("PASS live Oryx exact-revision retrieval")
             } catch { failures.append("Live Oryx retrieval: \(error)") }
         }
