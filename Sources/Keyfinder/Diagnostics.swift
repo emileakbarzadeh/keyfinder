@@ -303,9 +303,10 @@ import KeyfinderCore
             model.endOverlayPreview()
             var light = model.preferences; light.appearance = .light
             model.setPreferences(light)
+            checks.merge(try await checkStandardShortcuts(delegate: delegate, model: model, monitor: monitor, iconVisible: false)) { _, new in new }
         }
         do {
-            let (delegate, model, _) = launch()
+            let (delegate, model, monitor) = launch()
             defer { delegate.applicationWillTerminate(termination) }
             checks["saved_appearance_applies_when_settings_reopens"] = model.preferences.appearance == .light && delegate.settingsWindow?.appearance?.name == .aqua
             checks["direct_launch_with_hidden_icon_opens_settings"] = delegate.statusItem?.isVisible == false && delegate.settingsWindow?.isVisible == true
@@ -320,6 +321,7 @@ import KeyfinderCore
             var shown = model.preferences; shown.showMenuBarIcon = true
             model.setPreferences(shown)
             checks["menu_bar_icon_can_be_restored_immediately"] = delegate.statusItem?.isVisible == true && Preferences.load(from: defaults).showMenuBarIcon
+            checks.merge(try await checkStandardShortcuts(delegate: delegate, model: model, monitor: monitor, iconVisible: true)) { _, new in new }
         }
         var hidden = Preferences.load(from: defaults); hidden.showMenuBarIcon = false
         hidden.save(to: defaults); defaults.removeObject(forKey: "hasLaunched")
@@ -330,6 +332,44 @@ import KeyfinderCore
             _ = delegate.applicationShouldHandleReopen(NSApp, hasVisibleWindows: false)
             checks["background_app_opens_settings_on_explicit_reopen"] = delegate.settingsWindow?.isVisible == true
         }
+        return checks
+    }
+
+    private static func checkStandardShortcuts(delegate: AppDelegate, model: AppModel, monitor: SimulatedKeyboard, iconVisible: Bool) async throws -> [String: Bool] {
+        delegate.openSettings()
+        guard let window = delegate.settingsWindow else { throw KeyfinderError.service("Settings did not open for shortcut verification.") }
+        // Exercise AppKit event dispatch with a field editor as first responder.
+        let field = NSTextField(frame: NSRect(x: 20, y: 20, width: 240, height: 24))
+        window.contentView?.addSubview(field)
+        defer { field.removeFromSuperview() }
+        window.makeFirstResponder(field)
+        try await waitUntil { NSApp.keyWindow === window && window.firstResponder is NSTextView }
+        let suffix = iconVisible ? "visible_icon" : "hidden_icon"
+        var checks: [String: Bool] = [:]
+        func press(_ character: String, keyCode: UInt16) throws {
+            guard let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [.command],
+                                              timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
+                                              context: nil, characters: character, charactersIgnoringModifiers: character,
+                                              isARepeat: false, keyCode: keyCode) else {
+                throw KeyfinderError.service("Could not create a shortcut event.")
+            }
+            NSApp.sendEvent(event)
+        }
+        model.showOverlayPreview()
+        try press("w", keyCode: 13)
+        checks["command_w_closes_settings_with_\(suffix)"] = !window.isVisible
+        checks["command_w_cleans_up_preview_and_keeps_monitoring_with_\(suffix)"] = !model.isPreviewingOverlay && !model.overlay.panel.isVisible && monitor.running
+
+        delegate.openSettings()
+        window.makeFirstResponder(field)
+        try await waitUntil { NSApp.keyWindow === window && window.firstResponder is NSTextView }
+        // Cancel termination only in this test so the smoke runner can finish.
+        let probe = TerminationProbe()
+        let previousDelegate = NSApp.delegate
+        NSApp.delegate = probe
+        defer { NSApp.delegate = previousDelegate }
+        try press("q", keyCode: 12)
+        checks["command_q_requests_termination_with_\(suffix)"] = probe.requested
         return checks
     }
 
@@ -351,6 +391,14 @@ import KeyfinderCore
         layer["keys"] = .array(keys); layers[1] = .object(layer)
         source["hashId"] = .string(id); source["layers"] = .array(layers)
         return try LayoutSnapshot(layoutID: snapshot.layoutID, title: snapshot.title, revisionID: id, source: .object(source)).validated()
+    }
+}
+
+@MainActor private final class TerminationProbe: NSObject, NSApplicationDelegate {
+    private(set) var requested = false
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        requested = true
+        return .terminateCancel
     }
 }
 

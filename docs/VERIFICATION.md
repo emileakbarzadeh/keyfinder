@@ -1,6 +1,6 @@
 # Verification record
 
-Verified September 30, 2026 on macOS 26.6.2, Apple Silicon. The Nix package uses pinned Apple Swift 6.3.3 and macOS SDK 26.4, with Lix 2.93.2. Checks use synthetic layout fixtures and simulated keyboard events; no Moonlander was connected.
+Baseline verified at commit `6692652` on September 30, 2026, macOS 26.6.2, Apple Silicon. The Nix package uses pinned Apple Swift 6.3.3 and macOS SDK 26.4, with Lix 2.93.2. Checks use synthetic layout fixtures and simulated keyboard events; no Moonlander was connected.
 
 **Software checks**
 

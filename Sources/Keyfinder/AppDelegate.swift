@@ -27,6 +27,7 @@ import KeyfinderCore
                 model = AppModel(geometry: geometry, monitor: HIDMonitor(), repository: LayoutRepository(directory: directory), defaults: defaults, overlay: overlay)
             }
             guard let model else { return }
+            configureApplicationMenu()
             let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
             self.statusItem = statusItem
             statusItem.isVisible = model.preferences.showMenuBarIcon
@@ -62,6 +63,31 @@ import KeyfinderCore
             let alert = NSAlert(); alert.messageText = "Keyfinder could not start"; alert.informativeText = error.localizedDescription
             alert.runModal(); NSApp.terminate(nil)
         }
+    }
+
+    private func configureApplicationMenu() {
+        // Status-item shortcuts only work while its dropdown is tracking. The
+        // application menu handles standard commands whenever Settings is key.
+        let menu = NSMenu()
+        let application = NSMenu(title: "Keyfinder")
+        let settings = NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
+        settings.target = self
+        application.addItem(settings)
+        application.addItem(.separator())
+        let quit = NSMenuItem(title: "Quit Keyfinder", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        quit.target = NSApp
+        application.addItem(quit)
+        let applicationItem = NSMenuItem()
+        applicationItem.submenu = application
+        menu.addItem(applicationItem)
+
+        let file = NSMenu(title: "File")
+        // A nil target routes Close to the key window through the responder chain.
+        file.addItem(NSMenuItem(title: "Close Window", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w"))
+        let fileItem = NSMenuItem()
+        fileItem.submenu = file
+        menu.addItem(fileItem)
+        NSApp.mainMenu = menu
     }
 
     func menuWillOpen(_ menu: NSMenu) { updateMenu() }

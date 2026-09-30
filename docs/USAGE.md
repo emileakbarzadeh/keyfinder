@@ -16,6 +16,8 @@ The app identifier is `io.keyfinder.app`. Earlier development builds used a diff
 - **Layout & connection** provides Oryx preview refresh, snapshot import/export, connection retry, and pause/resume.
 - **Pause** stops USB monitoring. **Quit** stops the app. The app's own launch-at-login option is off by default. Leave it off if the nix-darwin module manages startup.
 
+While Settings has focus, **⌘W** closes the window and ends any overlay preview while monitoring continues. **⌘Q** quits Keyfinder. Both shortcuts work with the menu bar icon hidden and while editing a text field.
+
 The live overlay does not activate the app or take keyboard focus. A current Oryx firmware build reports the initial layer when pairing, including when Keyfinder starts on a secondary layer.
 
 ## Oryx synchronization
