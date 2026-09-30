@@ -1,8 +1,10 @@
 # Using Keyfinder
 
-Keyfinder is a macOS 26+ menu bar app for the ZSA Moonlander. [Build and install with Nix](NIX.md), then open the app. Its keyboard icon lives in the menu bar; there is no Dock icon.
+Keyfinder is a macOS 26+ menu bar app for the ZSA Moonlander. [Download a disk image](../../../releases/latest) or [build and install with Nix](NIX.md), then open the app. Its keyboard icon lives in the menu bar by default; there is no Dock icon.
 
 On first launch, Settings opens with an offline keyboard preview. The bundled [example layout](https://configure.zsa.io/moonlander/layouts/exampleLayout/exampleRevision/0), revision `exampleRevision`, has three layers and lets you explore before connecting a keyboard. It is a starting example; the live overlay uses your keyboard's installed identity.
+
+Turn off **Appearance → Show menu bar icon** to hide the icon immediately. The preference persists across launches and does not pause the overlay or USB monitoring. Open Keyfinder from Applications or Spotlight to show Settings again; this also restores a closed or minimized Settings window when the app is already running. Login-item and `--background` startup do not open Settings. You can restore the icon or quit Keyfinder from the Application section in Appearance.
 
 ## Everyday use
 

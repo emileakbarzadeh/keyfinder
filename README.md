@@ -1,3 +1,6 @@
+> [!WARNING]
+> This project is AI-generated.
+
 <div align="center">
 
 <img src="docs/assets/icon.png" width="96" height="96" alt="Keyfinder icon">
@@ -29,7 +32,7 @@ Switch to a layer above **0** and your keyboard appears on screen. Change layers
 | :--- | :--- |
 | **Your layout, automatically** | Reads the installed Oryx revision when your Moonlander connects. Flash a new configuration and the overlay follows on reconnect. |
 | **Made for the Moonlander** | All 72 keys, the split shape, angled thumb clusters, tap/hold actions, and Oryx key colors. |
-| **Comfortably out of the way** | Set size, opacity, display, position, and an optional appearance delay. A menu bar icon keeps controls close. |
+| **Comfortably out of the way** | Set size, opacity, display, position, and an optional appearance delay. Hide the menu bar icon for an even quieter desktop; reopen the app to reach Settings. |
 | **Useful offline** | Cached layouts and a bundled three-layer example work without a network connection. Inspect any layer in Settings. |
 | **No typing history** | Uses the keyboard’s layer messages. Physical keypress reports are discarded immediately. |
 
@@ -51,7 +54,7 @@ There is no periodic Oryx refresh. A layout download happens only for an uncache
 
 Requires **macOS 26 or later**. [Download the latest release →](../../releases/latest)
 
-Choose `Keyfinder-macOS-arm64.zip` for Apple Silicon or `Keyfinder-macOS-x86_64.zip` for Intel. Unzip, move **Keyfinder.app** to Applications, and open it. Settings opens on first launch with an offline preview; connect your Moonlander when ready. Nix is not required to run the downloaded app.
+Choose `Keyfinder-macOS-arm64.dmg` for Apple Silicon or `Keyfinder-macOS-x86_64.dmg` for Intel. Open the disk image, drag **Keyfinder.app** to Applications, and open it. Settings opens on first launch with an offline preview; connect your Moonlander when ready. Nix is not required to run the downloaded app.
 
 The downloads are signed ad hoc and are not notarized. If macOS blocks opening the app, use **System Settings → Privacy & Security → Open Anyway** after attempting to open it. If macOS requests Input Monitoring access, grant it to Keyfinder and retry the connection from Settings.
 
@@ -66,15 +69,15 @@ Or launch directly with `nix run`.
 
 The flake pins Nixpkgs, the Apple Swift toolchain, and the macOS SDK. You do not need to install Xcode or Command Line Tools separately. The first build downloads the toolchain; later builds reuse the Nix store. Packages are defined for Apple Silicon and Intel Macs.
 
-The signed app, compiled launcher, and ZIP have passed byte-for-byte rebuild checks on Apple Silicon. [Build details and verification →](docs/NIX.md#reproducibility)
+The signed app, compiled launcher, and disk image are built from pinned inputs. [Rebuild comparisons and verification →](docs/NIX.md#reproducibility)
 
 ```sh
-nix build .#archive                 # A ZIP containing the standalone .app
+nix build .#dmg --out-link result-dmg # A disk image containing the standalone .app
 nix run . -- --diagnostics          # Check the packaged app and bundled layout
 nix run . -- --background           # Start without opening Settings
 ```
 
-Pushing a Git tag builds and checks both architectures, then publishes the app ZIPs to GitHub Releases. [Release workflow and signing details →](docs/NIX.md#tag-releases)
+Pushing a Git tag builds and checks both architectures, then publishes the disk images to GitHub Releases. [Release workflow and signing details →](docs/NIX.md#tag-releases)
 
 ## Add it to nix-darwin
 
@@ -113,6 +116,8 @@ When the module handles startup, leave the app’s own “Launch Keyfinder at lo
 <img src="docs/assets/appearance.png" width="800" alt="Keyfinder’s Appearance settings with controls for width, opacity, delay, screen placement, key colors, and launch at login">
 
 Preview layers, inspect individual actions, or drag the overlay into position. The live overlay resumes passing clicks through when you finish arranging.
+
+To hide the menu bar icon, turn off **Appearance → Show menu bar icon**. Open Keyfinder from Applications or Spotlight to return to Settings, even when it is already running. Background startup stays quiet, and the overlay continues to follow your layers.
 
 Transparent keys can inherit different actions from stacked layers. Stock Oryx reports only the highest active layer, so Keyfinder shows alternatives such as **`1 / F1`** when the exact action is ambiguous. [Details and connection troubleshooting →](docs/USAGE.md)
 

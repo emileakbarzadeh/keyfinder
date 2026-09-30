@@ -8,17 +8,17 @@ Verified September 29, 2026 on macOS 26.6.2, Apple Silicon. The Nix package uses
 | --- | --- |
 | Core checks | 13 tests, 1,459 assertions passed |
 | Core checks plus explicit live Oryx query | 14 tests, 1,461 assertions passed; retrieved `exampleLayout/exampleRevision` with three 72-key layers |
-| Debug AppKit integration | 25 checks passed |
-| Nix-packaged release AppKit integration | 25 checks passed |
+| Nix-packaged release AppKit integration | 35 checks passed, including menu bar visibility and Settings lifecycle |
 | Visual inspection | All three keyboard layers and Keyboard, Appearance, and Layout & connection settings pages rendered and reviewed; long legends fitted without dropping layer numbers |
-| Standalone packaging | The extracted Nix ZIP passed signature verification, loaded its bundled layout, and rendered all three layers outside the store |
+| Standalone packaging | The Nix DMG mounted read-only; both the mounted app and a copy installed outside the store passed signature verification and bundled-layout diagnostics |
 | macOS deployment target | `26.0` in both Info.plist and the Mach-O build-version load command |
 | Local signature | `codesign --verify --strict` passed; ad-hoc signature |
-| App bundle size | 2,175,723 bytes (about 2.08 MiB) |
-| Nix runtime closure | 2,229,232 bytes; only the launcher and app bundle, with no compiler or SDK dependency |
-| ZIP size | 1,300,166 bytes (about 1.24 MiB) |
+| App bundle size | 2,203,611 bytes (about 2.10 MiB) |
+| Nix runtime closure | 2,257,120 bytes; only the launcher and app bundle, with no compiler or SDK dependency |
+| Disk image size | 2,600,960 bytes (about 2.48 MiB), uncompressed |
+| Release workflow | `actionlint` passed; native Intel build and actual GitHub release publication remain untested |
 
-The integration checks use the actual AppModel, repository, preferences, settings views, and NSPanel. Only the keyboard event source and revision-fetch responses are simulated. They cover:
+The integration checks use the actual AppDelegate, AppModel, repository, preferences, settings views, status item, and NSPanel. Keyboard events, revision-fetch responses, and launch/reopen notifications are simulated. They cover:
 
 - Starting unplugged, offline preview, layer-0 hiding, showing secondary layers, and switching labels.
 - Preserving the foreground application and current key window, keeping the panel nonactivating, and setting click-through and Spaces/fullscreen collection behavior.
@@ -27,6 +27,8 @@ The integration checks use the actual AppModel, repository, preferences, setting
 - Keeping live labels unchanged after an Oryx preview refresh, activating the matching revision after a simulated flash/reconnect, and reusing its cache.
 - Showing no old key labels for an unavailable new revision, preserving the error across layer changes, and rejecting a late response from an earlier connection.
 - Preference persistence and preview cleanup.
+- Preserving existing settings when upgrading, hiding and restoring the menu bar icon immediately, and keeping the monitor and overlay active while the icon is hidden.
+- Showing Settings on a direct launch with the icon hidden, restoring closed and minimized Settings windows on reopen, and keeping `--background` startup quiet until an explicit reopen.
 
 The executable's `--smoke-test` command returns a nonzero exit code if any check fails. Rendered settings artifacts use AppKit's view rendering and do not require screen recording permission.
 
@@ -36,11 +38,11 @@ The measurement launched the actual Nix-packaged release app with `--background`
 
 | Metric | Observed |
 | --- | --- |
-| Measurement duration | 30.0042 seconds |
-| App CPU time during the interval | 0.000062 seconds |
-| Average CPU utilization | 0.000205% of one core |
-| Resident memory at end | 46.75 MiB |
-| Context switches during interval | 16 |
+| Measurement duration | 30.003 seconds |
+| App CPU time during the interval | 0.000065 seconds |
+| Average CPU utilization | 0.000218% of one core |
+| Resident memory at end | 47.0 MiB |
+| Context switches during interval | 15 |
 | Mach messages received during interval | 2 |
 | Threads at end | 3 |
 
@@ -54,13 +56,13 @@ Actual USB pairing and layer reports, permission behavior with the Moonlander at
 
 Sleep/wake observers, display fallback, fullscreen/Spaces configuration, and launch at login are implemented using native APIs. The tests check the panel configuration and simulated lifecycle rather than rebooting the Mac, changing its display hardware, or changing the user's login-item authorization. Verify those integrations on the user's normal desktop setup when connecting the keyboard.
 
-Developer ID signing/notarization was not performed: the Mac has no valid Developer ID signing identity. The Nix-generated app is ad-hoc signed and runs locally. Distribution commands are documented in [Nix packaging](NIX.md#signing-a-public-release).
+Developer ID signing/notarization was not performed: the Mac has no valid Developer ID signing identity. The Nix-generated app is ad-hoc signed and runs locally. Distribution commands are documented in [Nix packaging](NIX.md#developer-id-signing-and-notarization).
 
 **Nix packaging and reproducibility**
 
 The app and compiler extraction were built with `--option sandbox true`. The compiler, SDK, and signing tool came from pinned store inputs; compilation did not use the host's Xcode or Command Line Tools. The offline core runner executed during the sandboxed build.
 
-`nix build --rebuild` produced identical outputs for the signed app bundle, compiled launcher package, and ZIP. The ZIP's entries are sorted, timestamps are fixed to January 1, 1980 UTC, and the executable mode is preserved. The app's macOS deployment target is 26.0 and its SDK load command is 26.4. It links only to macOS system frameworks and libraries.
+`nix build --rebuild` produced identical outputs for the signed app bundle, compiled launcher package, and DMG. The disk image is generated entirely in the Nix sandbox, without mounting a volume or using the host's image-building tools. Its filesystem dates and ownership are fixed, and executable permissions and the app signature survive copying the app out of the image. The app's macOS deployment target is 26.0 and its SDK load command is 26.4. It links only to macOS system frameworks and libraries.
 
 The module checks evaluate real nix-darwin configurations with the service disabled, enabled, configured for manual launch, and given a custom package. They verify installation, Aqua-session startup, `KeepAlive = false`, direct executable arguments, no root daemon, and nix-darwin's own assertions. These checks do not activate a service or modify the host's system configuration.
 
@@ -75,20 +77,20 @@ nix run .#smoke-test
 nix run .#previews
 nix run .#benchmark -- --seconds 30
 nix develop --command swift run KeyfinderCoreChecks --live-oryx
-nix build .#archive --out-link result-archive
+nix build .#dmg --out-link result-dmg
 nix build . .#keyfinder.appBundle --rebuild --no-link --option sandbox true
-nix build .#archive --rebuild --no-link --option sandbox true
+nix build .#dmg --rebuild --no-link --option sandbox true
 codesign --verify --strict result/Applications/Keyfinder.app
 ```
 
 Generated reports and images are in `artifacts/`. The verified release executable SHA-256 is:
 
 ```text
-e51e3db96924876e0c31d2d0029a6af6dc67ae7fe44d9da5b2e327146db1595e
+e3def7a0ad2acc64bead4ca2a53ce38dfa2c44cbf66b260c9c38fb91e1a286b9
 ```
 
-The verified ZIP SHA-256 is:
+The verified DMG SHA-256 is:
 
 ```text
-7d48b5624881d120214ee69816c0b4f00eb87416adfe7d3b69ff85e77aa29ab8
+5f3f2b729986f5dbfa4422f3b66ee8cf3a89be069179fdaf6db4102f1286cd6c
 ```
