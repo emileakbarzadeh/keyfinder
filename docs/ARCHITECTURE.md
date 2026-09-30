@@ -44,6 +44,8 @@ The resolver compares action semantics, including tap/hold gestures and macros. 
 
 ## Window lifecycle and performance
 
+`Theme.swift` defines the interface colors in sRGB: blue `#003049`, red `#D62828`, orange `#F77F00`, and parchment `#F4F3EE`. Orange controls use blue text; red unverified-revision badges use parchment text. Oryx key colors remain optional and are tinted over the blue background so legends stay readable.
+
 The overlay cannot become the key or main window and passes clicks through. Dragging is enabled only during an explicit arrangement preview. It joins desktop Spaces and fullscreen environments; a missing display falls back to the main display.
 
 The menu bar icon is optional. Opening the app while the icon is hidden reveals Settings, including restoring a closed or minimized window. Login-item and `--background` launches remain quiet. Pause stops USB monitoring; Quit terminates the app without a keep-alive loop.

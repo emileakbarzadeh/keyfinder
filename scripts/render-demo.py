@@ -1,19 +1,30 @@
 """Compose the README animation from Keyfinder's synthetic AppKit previews."""
 
 import argparse
+from io import BytesIO
 from pathlib import Path
 import subprocess
 import tempfile
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageChops, ImageCms, ImageColor, ImageDraw, ImageFont
 
 
 WIDTH, HEIGHT = 1200, 800
-BACKGROUND = "#0d1117"
-FOREGROUND = "#f0f4f8"
-MUTED = "#99a5b3"
-ACCENTS = {0: "#99a5b3", 1: "#54c9b8", 2: "#779de8"}
+BACKGROUND = "#003049"
+FOREGROUND = "#f4f3ee"
+ORANGE = "#f77f00"
+RED = "#d62828"
+ACCENTS = {0: FOREGROUND, 1: ORANGE, 2: RED}
 SCENES = [(1, 3500), (2, 3500), (0, 2000)]
+
+
+def tint(fraction):
+    return tuple(round(a + (b - a) * fraction) for a, b in zip(ImageColor.getrgb(BACKGROUND), ImageColor.getrgb(FOREGROUND)))
+
+
+SURFACE = tint(0.06)
+MUTED = tint(0.74)
+BORDER = tint(0.24)
 
 
 def font(path, size, bold=False):
@@ -22,38 +33,52 @@ def font(path, size, bold=False):
     return result
 
 
+def indexed_frame(frame, palette):
+    indexed = frame.quantize(palette=palette, dither=Image.Dither.NONE)
+    # Pillow's palette lookup groups nearby RGB values; preserve exact flat fills.
+    for index, color in enumerate((BACKGROUND, FOREGROUND, ORANGE, RED), start=252):
+        r, g, b = ImageChops.difference(frame, Image.new("RGB", frame.size, color)).split()
+        mask = ImageChops.lighter(ImageChops.lighter(r, g), b).point(lambda value: 255 if value == 0 else 0)
+        indexed.paste(index, mask=mask)
+    return indexed
+
+
 def scene(layer, previews, typeface):
     canvas = Image.new("RGB", (WIDTH, HEIGHT), BACKGROUND)
     draw = ImageDraw.Draw(canvas)
     accent = ACCENTS[layer]
 
     draw.text((44, 41), "KEYFINDER", font=font(typeface, 27, True), fill=FOREGROUND, anchor="lm")
-    draw.text((44, 77), "Your layers, in plain sight.", font=font(typeface, 19), fill=MUTED, anchor="lm")
+    draw.text((44, 77), "Moonlander layer overlay", font=font(typeface, 19), fill=MUTED, anchor="lm")
 
     cursor = 648
     for index, title, width in [(0, "0 · Typing", 144), (1, "1 · Symbols", 160), (2, "2 · Navigation", 184)]:
         selected = index == layer
         draw.rounded_rectangle(
             (cursor, 30, cursor + width, 88), radius=16,
-            fill="#1d3036" if selected else "#151b23",
-            outline=accent if selected else "#2a333e", width=2,
+            fill=accent if selected else SURFACE,
+            outline=FOREGROUND if selected else BORDER, width=2,
         )
         draw.text(
             (cursor + width / 2, 59), title, font=font(typeface, 19, selected),
-            fill=FOREGROUND if selected else MUTED, anchor="mm",
+            fill=(FOREGROUND if layer == 2 else BACKGROUND) if selected else MUTED, anchor="mm",
         )
         cursor += width + 10
 
     if layer:
         with Image.open(previews / f"layer-{layer}.png") as rendered:
-            overlay = rendered.convert("RGBA")
+            # AppKit captures can use a display profile; GIF has no color profile.
+            profile = rendered.info.get("icc_profile")
+            overlay = ImageCms.profileToProfile(
+                rendered, ImageCms.ImageCmsProfile(BytesIO(profile)), ImageCms.createProfile("sRGB"), outputMode="RGBA",
+            ) if profile else rendered.convert("RGBA")
         overlay.thumbnail((1100, 610), Image.Resampling.LANCZOS)
         canvas.paste(overlay, ((WIDTH - overlay.width) // 2, 128), overlay)
     else:
         # This empty stage illustrates hiding; it is not an app window.
-        draw.rounded_rectangle((562, 313, 638, 389), radius=23, fill="#1d3036", outline="#34565b", width=2)
-        draw.text((600, 351), "0", font=font(typeface, 35, True), fill="#54c9b8", anchor="mm")
-        draw.text((600, 445), "Back to typing.", font=font(typeface, 42, True), fill=FOREGROUND, anchor="mm")
+        draw.rounded_rectangle((562, 313, 638, 389), radius=23, fill=ORANGE)
+        draw.text((600, 351), "0", font=font(typeface, 35, True), fill=BACKGROUND, anchor="mm")
+        draw.text((600, 445), "Typing layer", font=font(typeface, 42, True), fill=FOREGROUND, anchor="mm")
         draw.text((600, 495), "Layer 0 hides the overlay.", font=font(typeface, 23), fill=MUTED, anchor="mm")
 
     draw.ellipse((46, 762, 56, 772), fill=accent)
@@ -82,8 +107,11 @@ def main():
     atlas = Image.new("RGB", (WIDTH, HEIGHT * len(frames)))
     for index, frame in enumerate(frames):
         atlas.paste(frame, (0, HEIGHT * index))
-    palette = atlas.quantize(colors=256, method=Image.Quantize.MEDIANCUT)
-    frames = [frame.quantize(palette=palette, dither=Image.Dither.NONE) for frame in frames]
+    palette = atlas.quantize(colors=252, method=Image.Quantize.MEDIANCUT)
+    # Reserve the four brand colors so quantization does not shift flat fills.
+    brand_colors = [channel for color in (BACKGROUND, FOREGROUND, ORANGE, RED) for channel in ImageColor.getrgb(color)]
+    palette.putpalette(palette.getpalette()[:252 * 3] + brand_colors)
+    frames = [indexed_frame(frame, palette) for frame in frames]
     args.output.parent.mkdir(parents=True, exist_ok=True)
     frames[0].save(
         args.output, format="GIF", save_all=True, append_images=frames[1:],

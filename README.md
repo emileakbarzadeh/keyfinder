@@ -13,10 +13,10 @@
 
 A macOS app that shows your Moonlander’s active layer and the action assigned to each key.
 
-![macOS 26+](https://img.shields.io/badge/macOS-26%2B-151a21?style=flat-square&logo=apple&logoColor=white)
-![ZSA Moonlander](https://img.shields.io/badge/ZSA-Moonlander-151a21?style=flat-square)
-![Built with Swift](https://img.shields.io/badge/Swift-native-151a21?style=flat-square&logo=swift)
-![Packaged with Nix](https://img.shields.io/badge/Nix-flake%20%2B%20nix--darwin-151a21?style=flat-square&logo=nixos)
+![macOS 26+](https://img.shields.io/badge/macOS-26%2B-003049?style=flat-square&labelColor=003049&logo=apple&logoColor=f4f3ee)
+![ZSA Moonlander](https://img.shields.io/badge/ZSA-Moonlander-d62828?style=flat-square&labelColor=003049)
+![Built with Swift](https://img.shields.io/badge/Swift-native-003049?style=flat-square&labelColor=003049&logo=swift&logoColor=f77f00)
+![Packaged with Nix](https://img.shields.io/badge/Nix-flake%20%2B%20nix--darwin-003049?style=flat-square&labelColor=003049&logo=nixos&logoColor=f4f3ee)
 
 [Download](../../releases/latest) · [Installation](#installation) · [Performance](#performance) · [nix-darwin](#nix-darwin) · [User guide](docs/USAGE.md)
 
@@ -46,7 +46,7 @@ Keyfinder waits for USB and system events, with no polling, repeating timers, or
 
 | Measured idle CPU | Resident memory | App bundle |
 | :---: | :---: | :---: |
-| **~0.0002%** of one core | **~47 MiB** | **2.1 MiB** |
+| **~0.0002%** of one core | **~47 MiB** | **1.9 MiB** |
 
 Measured over 30 seconds on Apple Silicon running macOS 26.6.2, using the Nix release build with Settings closed and no keyboard connected. The measurements exclude startup and do not cover a connected keyboard or visible overlay. The app size excludes build tools. [Verification details](docs/VERIFICATION.md).
 

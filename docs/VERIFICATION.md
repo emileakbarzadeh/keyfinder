@@ -9,13 +9,13 @@ Verified September 30, 2026 on macOS 26.6.2, Apple Silicon. The Nix package uses
 | Core checks | 13 tests, 1,460 assertions passed |
 | Core checks plus explicit live Oryx query | 14 tests, 1,462 assertions passed using a supplied exact-revision URL; no preset account or layout in the runner |
 | Nix-packaged release AppKit integration | 38 checks passed, including demo setup, menu bar visibility, and Settings lifecycle |
-| Visual inspection | All three keyboard layers and Keyboard, Appearance, and Layout & connection settings pages rendered and reviewed; long legends fitted without dropping layer numbers |
+| Visual inspection | All three keyboard layers and settings pages rendered and reviewed, including selected keys, disabled Oryx colors, and the unverified-revision badge |
 | Standalone packaging | The Nix DMG mounted read-only; both the mounted app and a copy installed outside the store passed signature verification and bundled-layout diagnostics |
 | macOS deployment target | `26.0` in both Info.plist and the Mach-O build-version load command |
 | Local signature | `codesign --verify --strict` passed; ad-hoc signature |
-| App bundle size | 2,166,957 bytes (about 2.07 MiB) |
-| Nix runtime closure | 2,220,448 bytes; only the launcher and app bundle, with no compiler or SDK dependency |
-| Disk image size | 2,564,096 bytes (about 2.45 MiB), uncompressed |
+| App bundle size | 1,964,458 bytes (about 1.87 MiB) |
+| Nix runtime closure | 2,017,944 bytes; only the launcher and app bundle, with no compiler or SDK dependency |
+| Disk image size | 2,363,392 bytes (about 2.25 MiB), uncompressed |
 | Release workflow | `actionlint` passed; native Intel build and actual GitHub release publication remain untested |
 
 The integration checks use the actual AppDelegate, AppModel, repository, preferences, settings views, status item, and NSPanel. Keyboard events, revision-fetch responses, and launch/reopen notifications are simulated. They cover:
@@ -33,16 +33,18 @@ The integration checks use the actual AppDelegate, AppModel, repository, prefere
 
 The executable's `--smoke-test` command returns a nonzero exit code if any check fails. Rendered settings artifacts use AppKit's view rendering and do not require screen recording permission.
 
+Palette text contrast was checked in sRGB on opaque backgrounds: parchment on blue is 12.44:1, blue on orange is 5.26:1, and parchment on red is 4.51:1. Secondary key labels remain at least 4.53:1 against the lightest permitted Oryx tint, after AppKit color conversion. Custom buttons and layer selectors use blue/orange text pairs. The overlay's user-adjustable opacity can change contrast against the desktop. The README GIF converts AppKit captures to sRGB before encoding.
+
 **Measured idle performance**
 
 The measurement launched the actual Nix-packaged release app with `--background`, kept Settings closed, and left the keyboard disconnected. After a three-second startup allowance, an external Python process sampled the app's macOS process counters. Measurement timers live in that external tool, not in Keyfinder. Compilation and GUI checks had finished before the measurement began.
 
 | Metric | Observed |
 | --- | --- |
-| Measurement duration | 30.010 seconds |
-| App CPU time during the interval | 0.000059 seconds |
-| Average CPU utilization | 0.000197% of one core |
-| Resident memory at end | 46.5 MiB |
+| Measurement duration | 30.005 seconds |
+| App CPU time during the interval | 0.000063 seconds |
+| Average CPU utilization | 0.000211% of one core |
+| Resident memory at end | 46.7 MiB |
 | Context switches during interval | 16 |
 | Mach messages received during interval | 2 |
 | Threads at end | 3 |
@@ -87,11 +89,11 @@ codesign --verify --strict result/Applications/Keyfinder.app
 Generated reports and images are in `artifacts/`. The verified release executable SHA-256 is:
 
 ```text
-71f68831c414bac096fff82fa236d1feb0d69ec79a2a7aab1f436e9f30b56e44
+88c1e4bfa24c91de3d227a08b13f10050e4c39d84ae7f58bcd4fb0940e6b1e47
 ```
 
 The verified DMG SHA-256 is:
 
 ```text
-209b39f830df7153615af533bf5d303230cb82da02512d2e4a486b7df06e26b8
+088f4141c93c0658da43f5f3ed8a1e80370bf42f063ce38762c5aa745f031f5c
 ```
