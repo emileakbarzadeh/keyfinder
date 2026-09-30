@@ -6,3 +6,5 @@ artifacts/
 .swiftpm/
 __pycache__/
 *.pyc
+result
+result-*

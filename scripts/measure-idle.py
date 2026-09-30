@@ -18,10 +18,10 @@ class TaskInfo(ctypes.Structure):
 
 
 def main():
-    root = pathlib.Path(__file__).resolve().parent.parent
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--seconds", type=float, default=30)
-    parser.add_argument("--app", type=pathlib.Path, default=root / "dist/Keyfinder.app")
+    parser.add_argument("--app", type=pathlib.Path, required=True)
+    parser.add_argument("--output", type=pathlib.Path, default=pathlib.Path("artifacts/idle-performance.json"))
     args = parser.parse_args()
     if not 5 <= args.seconds <= 300:
         parser.error("Use a measurement interval between 5 and 300 seconds.")
@@ -60,7 +60,7 @@ def main():
             "mach_messages_received": after.messages_received - before.messages_received,
             "threads": after.thread_count,
         }
-        destination = root / "artifacts/idle-performance.json"
+        destination = args.output
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_text(json.dumps(report, indent=2) + "\n")
         print(json.dumps(report, indent=2))
