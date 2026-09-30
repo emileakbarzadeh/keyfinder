@@ -85,7 +85,31 @@ The default package uses Keyfinder's locked Nixpkgs even if the containing syste
 
 Removing or disabling the module removes its declarative installation and LaunchAgent on the next rebuild. Personal preferences and cached layouts remain in the user's Library.
 
-## Signing a public release
+## Tag releases
+
+The [release workflow](../.github/workflows/release.yml) runs whenever a Git tag is pushed. It builds natively on macOS 26 for Apple Silicon and Intel, runs `nix flake check`, and builds the existing `archive` output with the checked-in lock file and Nix sandbox enabled. It also extracts each ZIP, verifies the app's signature, and runs its offline diagnostics outside the Nix store.
+
+Once both builds pass, it publishes a GitHub release with generated release notes and two downloads:
+
+| Asset | Mac |
+| --- | --- |
+| `Keyfinder-macOS-arm64.zip` | Apple Silicon (M-series) |
+| `Keyfinder-macOS-x86_64.zip` | Intel |
+
+Each ZIP contains a standalone `Keyfinder.app`; users do not need Nix. Packaging stays in Nix, and the workflow uploads that archive unchanged. All actions are pinned to commit hashes. Only the publishing job receives `contents: write`; the built-in `GITHUB_TOKEN` is sufficient, with no additional secrets needed.
+
+Before tagging a new version, update `Packaging/Info.plist` and the package version strings in `nix/packages.nix`, and commit those changes together. The tag selects that committed source; the workflow does not rewrite version metadata or update `flake.lock`. For example, after the workflow and version changes are on GitHub:
+
+```sh
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+Every pushed tag creates a regular release; branch pushes and tag deletions do not publish. New releases are published after both assets upload. Failed runs can be retried from GitHub Actions; on repositories with mutable releases, rerunning a published tag replaces assets with the same names. Immutable releases require a new tag after publication.
+
+These automated downloads use the reproducible ad-hoc signature. Developer ID signing and notarization are not configured. macOS may require **System Settings → Privacy & Security → Open Anyway** for a downloaded app.
+
+## Developer ID signing and notarization
 
 Nix outputs are immutable. Copy the built app out of the store before applying your Developer ID signature and notarizing it with Apple's tools:
 
