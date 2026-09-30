@@ -1,101 +1,130 @@
+<div align="center">
+
+<img src="docs/assets/icon.png" width="96" height="96" alt="Keyfinder icon">
+
 # Keyfinder
 
-Keyfinder is a native macOS 26+ menu bar app for your ZSA Moonlander. It displays the keyboard when you enter any layer above 0, updates as you change layers, and hides when you return to typing. The overlay passes clicks through and does not take keyboard focus.
+**Your Moonlander’s layers, in plain sight.**
 
-Your [example Oryx layout](https://configure.zsa.io/moonlander/layouts/exampleLayout/latest/0), revision `exampleRevision`, is bundled so you can explore its three layers before plugging in the keyboard.
+A quiet macOS menu bar app that shows what every key does, right when you need it.
 
-**Build and open**
+![macOS 26+](https://img.shields.io/badge/macOS-26%2B-151a21?style=flat-square&logo=apple&logoColor=white)
+![ZSA Moonlander](https://img.shields.io/badge/ZSA-Moonlander-151a21?style=flat-square)
+![Built with Swift](https://img.shields.io/badge/Swift-native-151a21?style=flat-square&logo=swift)
+![Packaged with Nix](https://img.shields.io/badge/Nix-flake%20%2B%20nix--darwin-151a21?style=flat-square&logo=nixos)
 
-Use the Swift 6 toolchain from Apple's Command Line Tools or Xcode on macOS 26 or later. No package downloads or third-party runtime libraries are required.
+[Get started](#get-started) · [Performance](#small-app-quiet-idle) · [nix-darwin](#add-it-to-nix-darwin) · [How it works](docs/USAGE.md)
 
-```sh
-scripts/build-app.sh
-open dist/Keyfinder.app
-```
+<img src="docs/assets/keyboard.png" width="1100" alt="Keyfinder’s Moonlander preview showing function keys, symbols, a number pad, and angled thumb clusters on layer 1">
 
-The script produces `dist/Keyfinder.app` and `dist/Keyfinder-macOS.zip`. It builds for the host architecture with release optimization and signs the app locally. You can move the app into Applications. Its keyboard icon lives in the menu bar; it does not have a Dock icon.
+*Actual app preview. Your installed Oryx layout supplies the legends.*
 
-On first launch, Settings opens with the offline keyboard preview. Select a layer and click individual keys to inspect their actions. Connect the Moonlander when ready. A current Oryx firmware build reports the initial layer immediately, including when the app starts on a secondary layer.
+</div>
 
-**Using the app**
+## Find the key. Keep your flow.
 
-- Layer 0 hides the live overlay. Every other reported layer shows it, including layers added in later revisions.
-- Settings → Keyboard lets you inspect tap/hold actions, show an overlay preview, and examine inherited keys.
-- Settings → Appearance controls size, opacity, key colors, display, position, and optional appearance delay. “Drag overlay into place” temporarily accepts clicks for positioning; “Done arranging” restores normal behavior.
-- Settings → Layout & connection provides Oryx preview refresh, snapshot import/export, connection retry, and pause/resume.
-- Pause stops the USB monitor. Quit stops the app. Launch at login is optional and disabled by default.
+Switch to a layer above **0** and your keyboard appears on screen. Change layers and the legends follow. Return to your typing layer and it disappears. Clicks pass through; your work keeps keyboard focus.
 
-When macOS denies access to the keyboard, the connection panel explains the error and links to Input Monitoring settings. Retry after granting access if needed. Keyfinder uses the vendor-specific HID interface and never seizes the keyboard or intercepts normal system keystrokes.
+| Feature | What you get |
+| :--- | :--- |
+| **Your layout, automatically** | Reads the installed Oryx revision when your Moonlander connects. Flash a new configuration and the overlay follows on reconnect. |
+| **Made for the Moonlander** | All 72 keys, the split shape, angled thumb clusters, tap/hold actions, and Oryx key colors. |
+| **Comfortably out of the way** | Set size, opacity, display, position, and an optional appearance delay. A menu bar icon keeps controls close. |
+| **Useful offline** | Cached layouts and a bundled three-layer example work without a network connection. Inspect any layer in Settings. |
+| **No typing history** | Uses the keyboard’s layer messages. Physical keypress reports are discarded immediately. |
 
-**How synchronization works**
+Oryx edits take effect in the live overlay **after you flash them**. You can preview an unflashed revision separately without changing what the live overlay shows.
 
-Oryx firmware encodes `layoutID/revisionID` in the USB serial descriptor. Keyfinder reads that identity and loads the exact installed revision. Flashing a new layout disconnects and reconnects the keyboard, which triggers automatic sync. The app supports both Moonlander revision A and B product IDs.
+## Small app. Quiet idle.
 
-An Oryx edit that has not been flashed does not change the live overlay. “Load / refresh preview” retrieves the URL's chosen revision, or the latest one when the URL contains `latest`. The preview is separate from the installed layout. Refreshing never flashes firmware, switches keyboard layers, or changes lighting.
+Keyfinder waits for device and system events. It has **no polling, no repeating timers, and no continuous rendering**. Hidden overlays do no drawing, repeated layer reports do no UI work, and Pause stops USB monitoring.
 
-Validated snapshots are cached under `~/Library/Application Support/Keyfinder/Layouts`. The bundled revision also acts as an offline cache. A newly flashed revision that cannot be fetched displays an unavailable state instead of old key labels. Import/export uses Keyfinder's JSON snapshot format and preserves Oryx action data. If the firmware cannot identify its layout, you can explicitly choose the preview revision for that connection; the overlay labels this selection as unverified.
+| Measured idle CPU | Resident memory | App bundle |
+| :---: | :---: | :---: |
+| **~0.0002%** of one core | **~47 MiB** | **2.1 MiB** |
 
-**Performance behavior**
+Observed over 30 seconds on Apple Silicon running macOS 26.6.2, using the Nix-built release app with Settings closed and the keyboard unplugged; startup excluded. These are observations from that configuration, not a bound on connected-device or active-overlay usage. The app size excludes build tools. [Read the measurements and test coverage →](docs/VERIFICATION.md)
 
-There are no repeating timers, HID polling loops, periodic refreshes, background URL sessions, or animation/render loops. The app waits on IOKit hotplug/input callbacks and macOS sleep/wake/display notifications. It fetches a layout only on an uncached installed revision or an explicit refresh. Starting with the keyboard unplugged makes no Oryx request.
+There is no periodic Oryx refresh. A layout download happens only for an uncached installed revision or when you request a preview refresh. Starting unplugged makes no Oryx request.
 
-Ordinary layer reports update the UI only when the layer changes. The keyboard is drawn with a static AppKit view; hiding it stops drawing. Key labels are prepared when a layout loads. One-shot connection deadlines and an optional appearance delay are cancelled when no longer needed. Pause tears down the USB monitor entirely.
+## Get started
 
-Stock Oryx firmware also sends physical keydown/up reports while paired. The HID callback discards those before allocating a model event or scheduling UI work. It does not record, analyze, or persist typing. A resident app necessarily performs a little work in response to real device/system events; it does not run a continuous background job. See [verification results](docs/VERIFICATION.md) for measured idle CPU use and the scope of testing.
-
-**Inherited keys**
-
-The stock protocol reports the highest active layer, not the full active-layer set. For example, your layer-2 `1` key can inherit `1` from layer 0 or `F1` from layer 1. Keyfinder shows `1 / F1` with an inheritance mark rather than guessing. Consistent inherited actions are dimmed; details list possible lower-layer actions. Disabled keys and unknown actions remain distinct.
-
-Exact resolution of ambiguous stacked layers would require additional firmware reporting. The app works with stock Oryx firmware and makes this limitation visible. Shortcut labels describe keyboard bindings; application-specific shortcut behavior and OS remappers are outside the app's scope.
-
-**Verification commands**
+Requires **macOS 26 or later** and [Nix with flakes enabled](https://nix.dev/concepts/flakes). From a checkout:
 
 ```sh
-scripts/check.sh
-scripts/build-app.sh
-python3 scripts/measure-idle.py --seconds 30
+nix build
+open result/Applications/Keyfinder.app
 ```
 
-The checks include a standalone Swift core runner, rendered previews, and an AppKit smoke test with simulated USB events. The runner avoids a dependency on XCTest/Swift Testing, which are absent from some Command Line Tools installations. Failures return a nonzero exit code. The smoke test creates temporary windows and isolated settings, then cleans them up. It never modifies or flashes a keyboard.
+Or launch directly with `nix run`. Settings opens on first launch with an offline preview; connect your Moonlander when ready.
 
-Artifacts are written to `artifacts/`: layer images, settings screenshots, a smoke-test JSON report, and idle-performance measurements. These generated files and `dist/` are excluded from Git.
+The flake pins Nixpkgs, the Apple Swift toolchain, and the macOS SDK. You do not need to install Xcode or Command Line Tools separately. The first build downloads the toolchain; later builds reuse the Nix store. Packages are defined for Apple Silicon and Intel Macs.
 
-Other useful commands:
+The signed app, compiled launcher, and ZIP have passed byte-for-byte rebuild checks on Apple Silicon. [Build details and verification →](docs/NIX.md#reproducibility)
 
 ```sh
-swift run KeyfinderCoreChecks
-swift run KeyfinderCoreChecks --live-oryx
-dist/Keyfinder.app/Contents/MacOS/Keyfinder --diagnostics
-dist/Keyfinder.app/Contents/MacOS/Keyfinder --background
+nix build .#archive                 # A ZIP containing the standalone .app
+nix run . -- --diagnostics          # Check the packaged app and bundled layout
+nix run . -- --background           # Start without opening Settings
 ```
 
-`--live-oryx` adds an explicit network check against the supplied layout. `--background` suppresses the first-launch settings window. Normal menu bar controls remain available.
+The app is signed ad hoc for local use. Public distribution with Developer ID signing and notarization is a separate step. If macOS requests Input Monitoring access, grant it to Keyfinder and retry the connection from Settings.
 
-**Project structure**
+## Add it to nix-darwin
 
-| Path | Purpose |
-| --- | --- |
-| `Sources/KeyfinderCore` | Layout models, action labels, geometry, protocol decoding, cache, and revision-state rules |
-| `Sources/Keyfinder` | IOKit adapter, menu bar app, SwiftUI settings, AppKit overlay, and explicit diagnostic commands |
-| `Tests/KeyfinderCoreTests` | Dependency-free core checks |
-| `Packaging` | App bundle metadata; minimum OS is 26.0 |
-| `scripts` | Build, verification, and external performance measurement |
-| `PLAN.md` | Product specification and protocol research |
+Add the Keyfinder flake as an input to your existing configuration. This local-path example works before publishing the repository; replace the path with your checkout’s absolute path:
 
-The core does not import AppKit, SwiftUI, or IOKit. Linux remains a possible future port with its own device and desktop integration; X11/Wayland overlay behavior requires separate validation.
+```nix
+{
+  inputs.keyfinder.url = "path:/absolute/path/to/keyfinder";
 
-**Signing for distribution**
+  outputs = { nix-darwin, keyfinder, ... }: {
+    darwinConfigurations.your-mac = nix-darwin.lib.darwinSystem {
+      modules = [
+        keyfinder.darwinModules.default
+        {
+          system.primaryUser = "your-username";
+          services.keyfinder.enable = true;
+        }
+      ];
+    };
+  };
+}
+```
 
-The default build is ad-hoc signed for local use. Developer ID signing and Apple notarization require your signing identity and notary credentials; neither is needed to build and run locally, and neither is fabricated by the build script.
+Keep your existing inputs and modules, then rebuild your nix-darwin configuration as usual. Keyfinder appears in **Applications → Nix Apps** and starts in the primary user’s graphical login session. **Quit stays quit** until the next login or service reload.
+
+| Option | Default | Purpose |
+| :--- | :--- | :--- |
+| `services.keyfinder.enable` | `false` | Install the app and enable module configuration. |
+| `services.keyfinder.startAtLogin` | `true` | Create a user LaunchAgent. Set `false` to launch manually. |
+| `services.keyfinder.package` | The flake’s package | Select another compatible Keyfinder build. |
+
+When the module handles startup, leave the app’s own “Launch Keyfinder at login” toggle off. [Nix outputs, reproducibility, and module details →](docs/NIX.md)
+
+## Make it yours
+
+<img src="docs/assets/appearance.png" width="800" alt="Keyfinder’s Appearance settings with controls for width, opacity, delay, screen placement, key colors, and launch at login">
+
+Preview layers, inspect individual actions, or drag the overlay into position. The live overlay resumes passing clicks through when you finish arranging.
+
+Transparent keys can inherit different actions from stacked layers. Stock Oryx reports only the highest active layer, so Keyfinder shows alternatives such as **`1 / F1`** when the exact action is ambiguous. [Details and connection troubleshooting →](docs/USAGE.md)
+
+## Build, check, contribute
 
 ```sh
-KEYFINDER_SIGNING_IDENTITY='Developer ID Application: Your Name (TEAMID)' scripts/build-app.sh
-xcrun notarytool submit dist/Keyfinder-macOS.zip --keychain-profile YOUR_PROFILE --wait
-xcrun stapler staple dist/Keyfinder.app
-ditto -c -k --keepParent dist/Keyfinder.app dist/Keyfinder-macOS.zip
+nix flake check                    # Build + offline core checks + module checks
+nix run .#smoke-test                # AppKit integration checks; opens temporary windows
+nix run .#previews                  # Render all bundled layers into artifacts/previews
+nix run .#benchmark -- --seconds 30 # Measure the packaged app from a separate process
+nix develop                        # Pinned compiler, SDK, Python, and Nix formatter
+nix fmt
 ```
 
-**Sources**
+The Swift core covers layouts, labels, USB packet decoding, and caching. AppKit, SwiftUI, and IOKit handle the Mac integration. There are no third-party Swift package dependencies. The core is separated from the desktop adapter to leave room for a future Linux port.
 
-USB protocol and device identity behavior were checked against ZSA's [Oryx module](https://github.com/zsa/qmk_modules/tree/main/oryx) and [Zapp](https://github.com/zsa/zapp). Physical key coordinates and matrix positions follow the [Moonlander definition](https://github.com/zsa/qmk_firmware/blob/93b2b9ec3368f86c5eb5a2e3f934049f8daef885/keyboards/zsa/moonlander/reva/keyboard.json), with thumb-cluster presentation adjusted for the Moonlander shape. The bundled layout comes from the user-supplied Oryx revision. See `PLAN.md` for pinned research references.
+Physical Moonlander pairing, real layer changes, and flash/reconnect behavior still need hardware acceptance testing. The current verification uses protocol fixtures, simulated USB events, and a live Oryx revision fetch. [Full verification record →](docs/VERIFICATION.md)
+
+[Architecture & product plan](PLAN.md) · [User guide](docs/USAGE.md) · [Nix packaging](docs/NIX.md)
+
+Built for [ZSA’s Moonlander](https://www.zsa.io/moonlander), using its [Oryx protocol](https://github.com/zsa/qmk_modules/tree/main/oryx). Keyfinder is an independent project.
