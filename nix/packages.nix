@@ -82,7 +82,7 @@ let
   # Keep the wrapper's target in a separate, immutable output. Embedding its own
   # $out would make the Mach-O UUID depend on Nix's temporary rebuild path.
   keyfinder =
-    pkgs.runCommand "keyfinder-1.0.0"
+    pkgs.runCommand "keyfinder-${appBundle.version}"
       {
         nativeBuildInputs = [ pkgs.makeBinaryWrapper ];
         meta = appBundle.meta // {
@@ -96,19 +96,7 @@ let
         makeWrapper ${appBundle}/Applications/Keyfinder.app/Contents/MacOS/Keyfinder "$out/bin/keyfinder"
       '';
 
-  archive =
-    pkgs.runCommand "keyfinder-1.0.0-macos-${pkgs.stdenv.hostPlatform.system}.zip"
-      {
-        nativeBuildInputs = [ pkgs.zip ];
-        env.TZ = "UTC";
-      }
-      ''
-        cp -R ${appBundle}/Applications/Keyfinder.app .
-        chmod -R u+w Keyfinder.app
-        find Keyfinder.app -exec touch -h -t 198001010000.00 {} +
-        find Keyfinder.app -print | LC_ALL=C sort | zip -X -q Keyfinder.zip -@
-        mv Keyfinder.zip "$out"
-      '';
+  dmg = import ./dmg.nix { inherit pkgs appBundle; };
 
   smoke = pkgs.writeShellApplication {
     name = "keyfinder-smoke-test";
@@ -135,7 +123,7 @@ let
   };
 in
 {
-  inherit keyfinder archive;
+  inherit keyfinder dmg;
   apps = {
     default = app keyfinder;
     smoke-test = app smoke;

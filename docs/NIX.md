@@ -1,6 +1,6 @@
 # Nix packaging
 
-Nix is the primary build and packaging interface. The repository has no standalone shell build scripts. The derivations declare the source files, compiler, SDK, build checks, app contents, signing tool, archive, development environment, and login service. Short build phases perform compilation and file installation. The app's CLI launcher is a compiled executable; the optional diagnostic command wrappers contain only an `exec`.
+Nix is the primary build and packaging interface. The repository has no standalone shell build scripts. The derivations declare the source files, compiler, SDK, build checks, app contents, signing tool, disk image, development environment, and login service. Short build phases perform compilation and file installation. The app's CLI launcher is a compiled executable; the optional diagnostic command wrappers contain only an `exec`.
 
 ## Inputs and outputs
 
@@ -13,7 +13,7 @@ The macOS 26.4 SDK comes from the locked Nixpkgs `apple-sdk_26.src` output. Usin
 | Flake output | Use |
 | --- | --- |
 | `packages.<system>.default` / `keyfinder` | Release `.app` under `Applications`, plus `bin/keyfinder` |
-| `packages.<system>.archive` | ZIP containing the standalone `.app` |
+| `packages.<system>.dmg` | Mountable disk image containing the standalone `.app` and an Applications shortcut |
 | `apps.<system>.default` | Launch the app; arguments pass through unchanged |
 | `apps.<system>.smoke-test` | AppKit checks with temporary windows and simulated USB events |
 | `apps.<system>.previews` | Render the bundled keyboard layers |
@@ -27,7 +27,7 @@ The macOS 26.4 SDK comes from the locked Nixpkgs `apple-sdk_26.src` output. Usin
 
 There are no third-party Swift package dependencies. The source filter excludes docs, screenshots, Git state, and build artifacts, so documentation changes do not rebuild the app.
 
-The signed app bundle and compiled launcher use separate store outputs. The default package links to the complete bundle under `Applications/Keyfinder.app`, preserving its signature. Use the ZIP output, or `cp -RL result/Applications/Keyfinder.app destination`, when copying a standalone app out of the store.
+The signed app bundle and compiled launcher use separate store outputs. The default package links to the complete bundle under `Applications/Keyfinder.app`, preserving its signature. Use the disk image, or `cp -RL result/Applications/Keyfinder.app destination`, when copying a standalone app out of the store.
 
 ## Building and verifying
 
@@ -39,7 +39,7 @@ nix run . -- --diagnostics
 nix run .#smoke-test
 nix run .#previews
 nix run .#benchmark -- --seconds 30 --output artifacts/idle-performance.json
-nix build .#archive --out-link result-archive
+nix build .#dmg --out-link result-dmg
 ```
 
 The package's offline core checks run inside the build. GUI checks, preview rendering, and performance measurements run explicitly in your desktop session. They are not cached as build-time test results, and they do not run during system activation. The smoke command accepts an optional report path; previews accepts an optional output directory. Relative paths resolve from the directory where you invoke Nix.
@@ -61,7 +61,9 @@ The last command explicitly contacts Oryx; the ordinary build does not. To updat
 
 The build selects the compiler and SDK from store paths, uses a fixed macOS 26.0 deployment target, omits debug information, and enables the linker's reproducible mode with content-derived UUIDs. Resources resolve beside the executable or inside the app, without embedding SwiftPM's absolute build-directory fallback. The checked-in icon is a release asset, so building the app never needs a graphical session to render it.
 
-The signing tool is pinned and signs ad hoc without a timestamp server, using a fixed signing time. ZIP entries are sorted and their timestamps normalized. The package rejects references to its compiler or SDK, keeping those build inputs out of the runtime closure. macOS frameworks and services remain runtime dependencies supplied by the operating system.
+The signing tool is pinned and signs ad hoc without a timestamp server, using a fixed signing time. The package rejects references to its compiler or SDK, keeping those build inputs out of the runtime closure. macOS frameworks and services remain runtime dependencies supplied by the operating system.
+
+[dmg.nix](../nix/dmg.nix) uses pinned `xorriso`/`libisofs` to create an uncompressed HFS+/ISO hybrid disk image with fixed file dates, ownership, volume dates, and a content-derived volume identifier. It needs no disk mounting or host `hdiutil` during the Nix build. A small scoped patch prevents `libisofs` from inventing Finder type/creator metadata, which would invalidate the app's signature. The image preserves the signed app and includes an Applications shortcut for drag-and-drop installation. macOS mounts it directly as a `.dmg`; it is not a ZIP archive.
 
 Pinned inputs and deterministic packaging make repeatable builds possible. Actual rebuild comparisons, architectures built, and remaining limitations belong in the [verification record](VERIFICATION.md); evaluation alone is not evidence of byte-for-byte reproducibility.
 
@@ -87,18 +89,18 @@ Removing or disabling the module removes its declarative installation and Launch
 
 ## Tag releases
 
-The [release workflow](../.github/workflows/release.yml) runs whenever a Git tag is pushed. It builds natively on macOS 26 for Apple Silicon and Intel, runs `nix flake check`, and builds the existing `archive` output with the checked-in lock file and Nix sandbox enabled. It also extracts each ZIP, verifies the app's signature, and runs its offline diagnostics outside the Nix store.
+The [release workflow](../.github/workflows/release.yml) runs whenever a Git tag is pushed. It builds natively on macOS 26 for Apple Silicon and Intel, runs `nix flake check`, and builds the `dmg` output with the checked-in lock file and Nix sandbox enabled. It mounts each image read-only, verifies the app's signature, runs its offline diagnostics outside the Nix store, and detaches the image.
 
 Once both builds pass, it publishes a GitHub release with generated release notes and two downloads:
 
 | Asset | Mac |
 | --- | --- |
-| `Keyfinder-macOS-arm64.zip` | Apple Silicon (M-series) |
-| `Keyfinder-macOS-x86_64.zip` | Intel |
+| `Keyfinder-macOS-arm64.dmg` | Apple Silicon (M-series) |
+| `Keyfinder-macOS-x86_64.dmg` | Intel |
 
-Each ZIP contains a standalone `Keyfinder.app`; users do not need Nix. Packaging stays in Nix, and the workflow uploads that archive unchanged. All actions are pinned to commit hashes. Only the publishing job receives `contents: write`; the built-in `GITHUB_TOKEN` is sufficient, with no additional secrets needed.
+Each disk image contains a standalone `Keyfinder.app`; users do not need Nix. Packaging stays in Nix, and the workflow uploads the image unchanged, with artifact ZIP wrapping disabled. All actions are pinned to commit hashes. Only the publishing job receives `contents: write`; the built-in `GITHUB_TOKEN` is sufficient, with no additional secrets needed.
 
-Before tagging a new version, update `Packaging/Info.plist` and the package version strings in `nix/packages.nix`, and commit those changes together. The tag selects that committed source; the workflow does not rewrite version metadata or update `flake.lock`. For example, after the workflow and version changes are on GitHub:
+Before tagging a new version, update `Packaging/Info.plist` and the app version in `nix/packages.nix`, and commit those changes together. The launcher and disk image inherit that package version. The tag selects that committed source; the workflow does not rewrite version metadata or update `flake.lock`. For example, after the workflow and version changes are on GitHub:
 
 ```sh
 git tag v1.0.0
@@ -118,10 +120,13 @@ cp -RL result/Applications/Keyfinder.app ./Keyfinder.app
 chmod -R u+w ./Keyfinder.app
 codesign --force --options runtime --timestamp \
   --sign 'Developer ID Application: Your Name (TEAMID)' ./Keyfinder.app
-ditto -c -k --keepParent ./Keyfinder.app ./Keyfinder-macOS.zip
-xcrun notarytool submit ./Keyfinder-macOS.zip --keychain-profile YOUR_PROFILE --wait
-xcrun stapler staple ./Keyfinder.app
-ditto -c -k --keepParent ./Keyfinder.app ./Keyfinder-macOS.zip
+mkdir -p ./release-content
+cp -R ./Keyfinder.app ./release-content/
+ln -s /Applications ./release-content/Applications
+hdiutil create -volname Keyfinder -srcfolder ./release-content -format UDRO ./Keyfinder-macOS.dmg
+codesign --sign 'Developer ID Application: Your Name (TEAMID)' --timestamp ./Keyfinder-macOS.dmg
+xcrun notarytool submit ./Keyfinder-macOS.dmg --keychain-profile YOUR_PROFILE --wait
+xcrun stapler staple ./Keyfinder-macOS.dmg
 ```
 
 Developer ID signing and notarization depend on external credentials and Apple's service, and are intentionally outside the reproducible local package. The normal Nix build requires neither.

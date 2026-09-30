@@ -34,7 +34,7 @@
           packages = packagesFor system;
         in
         {
-          inherit (packages) keyfinder archive;
+          inherit (packages) keyfinder dmg;
           default = packages.keyfinder;
         }
       );
