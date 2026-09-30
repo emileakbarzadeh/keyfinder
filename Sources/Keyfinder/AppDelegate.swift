@@ -1,27 +1,35 @@
 import AppKit
+import Carbon
 import SwiftUI
 import KeyfinderCore
 
 @MainActor final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelegate {
     private var model: AppModel?
-    private var statusItem: NSStatusItem?
-    private var settingsWindow: NSWindow?
+    private(set) var statusItem: NSStatusItem?
+    private(set) var settingsWindow: NSWindow?
     private let statusLine = NSMenuItem(title: "Waiting for Moonlander", action: nil, keyEquivalent: "")
     private let pauseItem = NSMenuItem(title: "Pause", action: #selector(togglePause), keyEquivalent: "")
     private let backgroundLaunch: Bool
+    private let defaults: UserDefaults
 
-    init(backgroundLaunch: Bool = false) { self.backgroundLaunch = backgroundLaunch; super.init() }
+    init(backgroundLaunch: Bool = false, defaults: UserDefaults = .standard, model: AppModel? = nil) {
+        self.backgroundLaunch = backgroundLaunch; self.defaults = defaults; self.model = model
+        super.init()
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         do {
-            let geometry = try MoonlanderGeometry.load()
-            let overlay = OverlayController(geometry: geometry)
-            let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-                .appendingPathComponent("Keyfinder/Layouts", isDirectory: true)
-            let model = AppModel(geometry: geometry, monitor: HIDMonitor(), repository: LayoutRepository(directory: directory), overlay: overlay)
-            self.model = model
+            if model == nil {
+                let geometry = try MoonlanderGeometry.load()
+                let overlay = OverlayController(geometry: geometry)
+                let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+                    .appendingPathComponent("Keyfinder/Layouts", isDirectory: true)
+                model = AppModel(geometry: geometry, monitor: HIDMonitor(), repository: LayoutRepository(directory: directory), defaults: defaults, overlay: overlay)
+            }
+            guard let model else { return }
             let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
             self.statusItem = statusItem
+            statusItem.isVisible = model.preferences.showMenuBarIcon
             statusItem.button?.image = NSImage(systemSymbolName: "keyboard", accessibilityDescription: "Keyfinder")
             statusItem.button?.image?.isTemplate = true
             let menu = NSMenu(); menu.delegate = self
@@ -40,10 +48,13 @@ import KeyfinderCore
             quit.target = self; menu.addItem(quit)
             statusItem.menu = menu
             model.onStatusChange = { [weak self] in self?.updateMenu() }
+            model.onMenuBarVisibilityChange = { [weak self] visible in self?.statusItem?.isVisible = visible }
             model.start()
             updateMenu()
-            if !backgroundLaunch && !UserDefaults.standard.bool(forKey: "hasLaunched") {
-                UserDefaults.standard.set(true, forKey: "hasLaunched")
+            let launchEvent = NSAppleEventManager.shared().currentAppleEvent
+            let loginLaunch = launchEvent?.paramDescriptor(forKeyword: keyAEPropData)?.enumCodeValue == keyAELaunchedAsLogInItem
+            if !backgroundLaunch && !loginLaunch && (!model.preferences.showMenuBarIcon || !defaults.bool(forKey: "hasLaunched")) {
+                defaults.set(true, forKey: "hasLaunched")
                 openSettings()
             }
         } catch {
@@ -75,9 +86,16 @@ import KeyfinderCore
             settingsWindow = window
         }
         NSApp.activate(ignoringOtherApps: true)
+        if settingsWindow?.isMiniaturized == true { settingsWindow?.deminiaturize(nil) }
         settingsWindow?.makeKeyAndOrderFront(nil)
     }
     func windowWillClose(_ notification: Notification) { model?.endOverlayPreview() }
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool { openSettings(); return true }
-    func applicationWillTerminate(_ notification: Notification) { model?.stop() }
+    func applicationWillTerminate(_ notification: Notification) {
+        settingsWindow?.close()
+        model?.onStatusChange = nil; model?.onMenuBarVisibilityChange = nil
+        model?.stop()
+        if let statusItem { NSStatusBar.system.removeStatusItem(statusItem) }
+        statusItem = nil
+    }
 }

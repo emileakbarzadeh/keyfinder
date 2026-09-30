@@ -9,6 +9,27 @@ struct Preferences: Codable, Equatable {
     var horizontalPosition: Double = 0.5
     var verticalPosition: Double = 0.035
     var useKeyColors = true
+    var showMenuBarIcon = true
+
+    init() {}
+
+    private enum CodingKeys: String, CodingKey {
+        case layoutURL, width, opacity, appearanceDelay, screenID, horizontalPosition, verticalPosition, useKeyColors, showMenuBarIcon
+    }
+
+    init(from decoder: Decoder) throws {
+        self.init()
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        layoutURL = try values.decodeIfPresent(String.self, forKey: .layoutURL) ?? layoutURL
+        width = try values.decodeIfPresent(Double.self, forKey: .width) ?? width
+        opacity = try values.decodeIfPresent(Double.self, forKey: .opacity) ?? opacity
+        appearanceDelay = try values.decodeIfPresent(Double.self, forKey: .appearanceDelay) ?? appearanceDelay
+        screenID = try values.decodeIfPresent(UInt32.self, forKey: .screenID) ?? screenID
+        horizontalPosition = try values.decodeIfPresent(Double.self, forKey: .horizontalPosition) ?? horizontalPosition
+        verticalPosition = try values.decodeIfPresent(Double.self, forKey: .verticalPosition) ?? verticalPosition
+        useKeyColors = try values.decodeIfPresent(Bool.self, forKey: .useKeyColors) ?? useKeyColors
+        showMenuBarIcon = try values.decodeIfPresent(Bool.self, forKey: .showMenuBarIcon) ?? showMenuBarIcon
+    }
 
     func clamped() -> Preferences {
         var copy = self

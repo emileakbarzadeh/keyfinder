@@ -178,6 +178,7 @@ import KeyfinderCore
                 try await Task.sleep(for: .milliseconds(75))
                 checks["late_response_cannot_overwrite_reconnected_layout"] = overlay.keyboardView.presentedLayer?.keys[1].label == "F1" && appModel.installedRevision == snapshot.revisionID
                 monitor.emit(.disconnected)
+                checks.merge(try await checkApplicationLifecycle(geometry: geometry, snapshot: snapshot, directory: temporary)) { _, new in new }
             } catch { failure = error.localizedDescription }
             let passed = failure == nil && checks.values.allSatisfy { $0 }
             smokePassed = passed
@@ -186,6 +187,69 @@ import KeyfinderCore
             print(passed ? "Smoke test passed (\(checks.count) checks)." : "Smoke test FAILED. See \(reportURL.path)")
             if !passed { fputs("Keyfinder smoke verification failed.\n", stderr) }
         }
+    }
+
+    private static func checkApplicationLifecycle(geometry: [KeyGeometry], snapshot: LayoutSnapshot, directory: URL) async throws -> [String: Bool] {
+        var checks: [String: Bool] = [:]
+        let suiteName = "io.keyfinder.lifecycle.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        var original = Preferences()
+        original.width = 1170; original.opacity = 0.72; original.useKeyColors = false
+        original.layoutURL = "https://configure.zsa.io/moonlander/layouts/exampleLayout/exampleRevision/0"
+        var legacy = try JSONSerialization.jsonObject(with: JSONEncoder().encode(original)) as! [String: Any]
+        legacy.removeValue(forKey: "showMenuBarIcon")
+        defaults.set(try JSONSerialization.data(withJSONObject: legacy), forKey: "preferences")
+        defaults.set(true, forKey: "hasLaunched")
+        checks["existing_preferences_survive_icon_setting_upgrade"] = Preferences.load(from: defaults) == original
+
+        func launch(background: Bool = false) -> (AppDelegate, AppModel, SimulatedKeyboard) {
+            let monitor = SimulatedKeyboard()
+            let model = AppModel(geometry: geometry, monitor: monitor,
+                                 repository: LayoutRepository(directory: directory, client: ScenarioClient(), bundled: snapshot),
+                                 defaults: defaults, overlay: OverlayController(geometry: geometry))
+            let delegate = AppDelegate(backgroundLaunch: background, defaults: defaults, model: model)
+            delegate.applicationDidFinishLaunching(Notification(name: NSApplication.didFinishLaunchingNotification))
+            return (delegate, model, monitor)
+        }
+        let termination = Notification(name: NSApplication.willTerminateNotification)
+        do {
+            let (delegate, model, monitor) = launch()
+            defer { delegate.applicationWillTerminate(termination) }
+            checks["menu_bar_icon_visible_by_default"] = delegate.statusItem?.isVisible == true
+            var hidden = model.preferences; hidden.showMenuBarIcon = false
+            model.setPreferences(hidden)
+            model.showOverlayPreview()
+            checks["hiding_icon_keeps_monitor_and_overlay_active"] = delegate.statusItem?.isVisible == false && monitor.running && model.overlay.panel.isVisible
+            checks["hidden_icon_preference_persists"] = !Preferences.load(from: defaults).showMenuBarIcon
+        }
+        do {
+            let (delegate, model, _) = launch()
+            defer { delegate.applicationWillTerminate(termination) }
+            checks["direct_launch_with_hidden_icon_opens_settings"] = delegate.statusItem?.isVisible == false && delegate.settingsWindow?.isVisible == true
+            delegate.settingsWindow?.close()
+            _ = delegate.applicationShouldHandleReopen(NSApp, hasVisibleWindows: false)
+            checks["reopening_hidden_app_restores_closed_settings"] = delegate.settingsWindow?.isVisible == true
+            delegate.settingsWindow?.miniaturize(nil)
+            try await waitUntil { delegate.settingsWindow?.isMiniaturized == true }
+            _ = delegate.applicationShouldHandleReopen(NSApp, hasVisibleWindows: false)
+            try await waitUntil { delegate.settingsWindow?.isMiniaturized == false && delegate.settingsWindow?.isVisible == true }
+            checks["reopening_hidden_app_restores_minimized_settings"] = true
+            var shown = model.preferences; shown.showMenuBarIcon = true
+            model.setPreferences(shown)
+            checks["menu_bar_icon_can_be_restored_immediately"] = delegate.statusItem?.isVisible == true && Preferences.load(from: defaults).showMenuBarIcon
+        }
+        var hidden = Preferences.load(from: defaults); hidden.showMenuBarIcon = false
+        hidden.save(to: defaults); defaults.removeObject(forKey: "hasLaunched")
+        do {
+            let (delegate, _, monitor) = launch(background: true)
+            defer { delegate.applicationWillTerminate(termination) }
+            checks["hidden_background_launch_stays_quiet"] = delegate.settingsWindow == nil && delegate.statusItem?.isVisible == false && monitor.running
+            _ = delegate.applicationShouldHandleReopen(NSApp, hasVisibleWindows: false)
+            checks["background_app_opens_settings_on_explicit_reopen"] = delegate.settingsWindow?.isVisible == true
+        }
+        return checks
     }
 
     private static func waitUntil(_ condition: () async -> Bool) async throws {

@@ -83,6 +83,12 @@ struct SettingsView: View {
 
     private var appearanceTab: some View {
         Form {
+            Section("Application") {
+                Toggle("Show menu bar icon", isOn: preference(\.showMenuBarIcon))
+                Text("When the icon is hidden, open Keyfinder from Applications or Spotlight to return to Settings. The overlay keeps working.").font(.caption).foregroundStyle(.secondary)
+                Toggle("Launch Keyfinder at login", isOn: Binding(get: { model.launchAtLogin }, set: model.setLaunchAtLogin))
+                Button("Quit Keyfinder") { NSApp.terminate(nil) }
+            }
             Section("Overlay") {
                 HStack { Text("Width"); Slider(value: preference(\.width), in: 620...1500, step: 10); Text("\(Int(model.preferences.width)) pt").monospacedDigit().frame(width: 65) }
                 HStack { Text("Opacity"); Slider(value: preference(\.opacity), in: 0.4...1); Text("\(Int(model.preferences.opacity * 100))%").monospacedDigit().frame(width: 65) }
@@ -111,11 +117,11 @@ struct SettingsView: View {
                     if model.isArranging { model.endOverlayPreview() } else { model.showOverlayPreview(arrange: true) }
                 }
                 Text("The live overlay passes clicks through to your apps. Dragging is enabled only while arranging.").font(.caption).foregroundStyle(.secondary)
-            }
-            Section {
-                Toggle("Launch Keyfinder at login", isOn: Binding(get: { model.launchAtLogin }, set: model.setLaunchAtLogin))
                 Button("Restore appearance defaults") {
-                    var value = Preferences(); value.layoutURL = model.preferences.layoutURL; model.setPreferences(value)
+                    var value = Preferences()
+                    value.layoutURL = model.preferences.layoutURL
+                    value.showMenuBarIcon = model.preferences.showMenuBarIcon
+                    model.setPreferences(value)
                 }
             }
         }.formStyle(.grouped)
