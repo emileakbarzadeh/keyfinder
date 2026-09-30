@@ -15,6 +15,11 @@ import KeyfinderCore
             view.frame = NSRect(x: 0, y: 0, width: 1100, height: KeyboardView.height(forWidth: 1100))
             try capture(view, to: directory.appendingPathComponent("layer-\(index).png"))
         }
+        let neutral = KeyboardView(geometry: geometry)
+        neutral.presentedLayer = layers[1]; neutral.useKeyColors = false
+        neutral.unverified = true; neutral.selectedIndex = 1
+        neutral.frame = NSRect(x: 0, y: 0, width: 1100, height: KeyboardView.height(forWidth: 1100))
+        try capture(neutral, to: directory.appendingPathComponent("unverified-without-key-colors.png"))
         print("Rendered \(layers.count) layers to \(directory.path)")
     }
 
@@ -30,17 +35,17 @@ import KeyfinderCore
         let image = NSImage(size: NSSize(width: 1024, height: 1024))
         image.lockFocus()
         let background = NSBezierPath(roundedRect: NSRect(x: 62, y: 62, width: 900, height: 900), xRadius: 202, yRadius: 202)
-        NSGradient(starting: NSColor(calibratedRed: 0.16, green: 0.2, blue: 0.25, alpha: 1), ending: NSColor(calibratedRed: 0.055, green: 0.065, blue: 0.09, alpha: 1))?.draw(in: background, angle: -60)
+        NSGradient(starting: Theme.surface, ending: Theme.blue)?.draw(in: background, angle: -60)
         for row in 0..<3 {
             for col in 0..<3 {
                 let selected = row == 1 && col == 1
                 let rect = NSRect(x: 210 + col * 205, y: 210 + row * 205, width: 178, height: 178)
                 let key = NSBezierPath(roundedRect: rect, xRadius: 36, yRadius: 36)
-                (selected ? NSColor(calibratedRed: 0.29, green: 0.83, blue: 0.76, alpha: 1) : NSColor.white.withAlphaComponent(0.1)).setFill(); key.fill()
-                NSColor.white.withAlphaComponent(selected ? 0.5 : 0.16).setStroke(); key.lineWidth = 3; key.stroke()
+                (selected ? Theme.orange : row == 2 && col == 2 ? Theme.red : Theme.parchment).setFill(); key.fill()
+                Theme.parchment.withAlphaComponent(0.24).setStroke(); key.lineWidth = 3; key.stroke()
                 if selected {
                     let mark = NSBezierPath(); mark.move(to: NSPoint(x: rect.minX + 49, y: rect.minY + 92)); mark.line(to: NSPoint(x: rect.minX + 80, y: rect.minY + 62)); mark.line(to: NSPoint(x: rect.minX + 133, y: rect.minY + 118))
-                    NSColor(calibratedWhite: 0.08, alpha: 1).setStroke(); mark.lineWidth = 15; mark.lineCapStyle = .round; mark.lineJoinStyle = .round; mark.stroke()
+                    Theme.blue.setStroke(); mark.lineWidth = 15; mark.lineCapStyle = .round; mark.lineJoinStyle = .round; mark.stroke()
                 }
             }
         }

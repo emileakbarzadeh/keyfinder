@@ -404,31 +404,31 @@
             "tap": {
               "code": "KC_F1"
             },
-            "glowColor": "#54C9B8"
+            "glowColor": "#F77F00"
           },
           {
             "tap": {
               "code": "KC_F2"
             },
-            "glowColor": "#54C9B8"
+            "glowColor": "#F77F00"
           },
           {
             "tap": {
               "code": "KC_F3"
             },
-            "glowColor": "#54C9B8"
+            "glowColor": "#F77F00"
           },
           {
             "tap": {
               "code": "KC_F4"
             },
-            "glowColor": "#54C9B8"
+            "glowColor": "#F77F00"
           },
           {
             "tap": {
               "code": "KC_F5"
             },
-            "glowColor": "#54C9B8"
+            "glowColor": "#F77F00"
           },
           {
             "tap": null,
@@ -442,31 +442,31 @@
             "tap": {
               "code": "KC_EXLM"
             },
-            "glowColor": "#54C9B8"
+            "glowColor": "#F77F00"
           },
           {
             "tap": {
               "code": "KC_AT"
             },
-            "glowColor": "#54C9B8"
+            "glowColor": "#F77F00"
           },
           {
             "tap": {
               "code": "KC_HASH"
             },
-            "glowColor": "#54C9B8"
+            "glowColor": "#F77F00"
           },
           {
             "tap": {
               "code": "KC_DLR"
             },
-            "glowColor": "#54C9B8"
+            "glowColor": "#F77F00"
           },
           {
             "tap": {
               "code": "KC_PERC"
             },
-            "glowColor": "#54C9B8"
+            "glowColor": "#F77F00"
           },
           {
             "tap": null,
@@ -480,31 +480,31 @@
             "tap": {
               "code": "KC_CIRC"
             },
-            "glowColor": "#54C9B8"
+            "glowColor": "#F77F00"
           },
           {
             "tap": {
               "code": "KC_AMPR"
             },
-            "glowColor": "#54C9B8"
+            "glowColor": "#F77F00"
           },
           {
             "tap": {
               "code": "KC_ASTR"
             },
-            "glowColor": "#54C9B8"
+            "glowColor": "#F77F00"
           },
           {
             "tap": {
               "code": "KC_LPRN"
             },
-            "glowColor": "#54C9B8"
+            "glowColor": "#F77F00"
           },
           {
             "tap": {
               "code": "KC_RPRN"
             },
-            "glowColor": "#54C9B8"
+            "glowColor": "#F77F00"
           },
           {
             "tap": null,
@@ -518,31 +518,31 @@
             "tap": {
               "code": "KC_GRV"
             },
-            "glowColor": "#54C9B8"
+            "glowColor": "#F77F00"
           },
           {
             "tap": {
               "code": "KC_TILD"
             },
-            "glowColor": "#54C9B8"
+            "glowColor": "#F77F00"
           },
           {
             "tap": {
               "code": "KC_UNDS"
             },
-            "glowColor": "#54C9B8"
+            "glowColor": "#F77F00"
           },
           {
             "tap": {
               "code": "KC_MINS"
             },
-            "glowColor": "#54C9B8"
+            "glowColor": "#F77F00"
           },
           {
             "tap": {
               "code": "KC_PLUS"
             },
-            "glowColor": "#54C9B8"
+            "glowColor": "#F77F00"
           },
           {
             "tap": null,
@@ -584,43 +584,43 @@
             "tap": {
               "code": "KC_F6"
             },
-            "glowColor": "#54C9B8"
+            "glowColor": "#F77F00"
           },
           {
             "tap": {
               "code": "KC_F7"
             },
-            "glowColor": "#54C9B8"
+            "glowColor": "#F77F00"
           },
           {
             "tap": {
               "code": "KC_F8"
             },
-            "glowColor": "#54C9B8"
+            "glowColor": "#F77F00"
           },
           {
             "tap": {
               "code": "KC_F9"
             },
-            "glowColor": "#54C9B8"
+            "glowColor": "#F77F00"
           },
           {
             "tap": {
               "code": "KC_F10"
             },
-            "glowColor": "#54C9B8"
+            "glowColor": "#F77F00"
           },
           {
             "tap": {
               "code": "KC_F11"
             },
-            "glowColor": "#54C9B8"
+            "glowColor": "#F77F00"
           },
           {
             "tap": {
               "code": "KC_F12"
             },
-            "glowColor": "#54C9B8"
+            "glowColor": "#F77F00"
           },
           {
             "tap": null,
@@ -630,31 +630,31 @@
             "tap": {
               "code": "KC_P7"
             },
-            "glowColor": "#54C9B8"
+            "glowColor": "#F77F00"
           },
           {
             "tap": {
               "code": "KC_P8"
             },
-            "glowColor": "#54C9B8"
+            "glowColor": "#F77F00"
           },
           {
             "tap": {
               "code": "KC_P9"
             },
-            "glowColor": "#54C9B8"
+            "glowColor": "#F77F00"
           },
           {
             "tap": {
               "code": "KC_PSLS"
             },
-            "glowColor": "#54C9B8"
+            "glowColor": "#F77F00"
           },
           {
             "tap": {
               "code": "KC_PAST"
             },
-            "glowColor": "#54C9B8"
+            "glowColor": "#F77F00"
           },
           {
             "tap": null,
@@ -668,31 +668,31 @@
             "tap": {
               "code": "KC_P4"
             },
-            "glowColor": "#54C9B8"
+            "glowColor": "#F77F00"
           },
           {
             "tap": {
               "code": "KC_P5"
             },
-            "glowColor": "#54C9B8"
+            "glowColor": "#F77F00"
           },
           {
             "tap": {
               "code": "KC_P6"
             },
-            "glowColor": "#54C9B8"
+            "glowColor": "#F77F00"
           },
           {
             "tap": {
               "code": "KC_PMNS"
             },
-            "glowColor": "#54C9B8"
+            "glowColor": "#F77F00"
           },
           {
             "tap": {
               "code": "KC_PPLS"
             },
-            "glowColor": "#54C9B8"
+            "glowColor": "#F77F00"
           },
           {
             "tap": null,
@@ -702,31 +702,31 @@
             "tap": {
               "code": "KC_P1"
             },
-            "glowColor": "#54C9B8"
+            "glowColor": "#F77F00"
           },
           {
             "tap": {
               "code": "KC_P2"
             },
-            "glowColor": "#54C9B8"
+            "glowColor": "#F77F00"
           },
           {
             "tap": {
               "code": "KC_P3"
             },
-            "glowColor": "#54C9B8"
+            "glowColor": "#F77F00"
           },
           {
             "tap": {
               "code": "KC_P0"
             },
-            "glowColor": "#54C9B8"
+            "glowColor": "#F77F00"
           },
           {
             "tap": {
               "code": "KC_PDOT"
             },
-            "glowColor": "#54C9B8"
+            "glowColor": "#F77F00"
           },
           {
             "tap": null,
@@ -764,7 +764,7 @@
             "tap": {
               "code": "KC_PENT"
             },
-            "glowColor": "#54C9B8"
+            "glowColor": "#F77F00"
           },
           {
             "tap": null,
@@ -812,31 +812,31 @@
             "tap": {
               "code": "KC_HOME"
             },
-            "glowColor": "#779DE8"
+            "glowColor": "#D62828"
           },
           {
             "tap": {
               "code": "KC_UP"
             },
-            "glowColor": "#779DE8"
+            "glowColor": "#D62828"
           },
           {
             "tap": {
               "code": "KC_END"
             },
-            "glowColor": "#779DE8"
+            "glowColor": "#D62828"
           },
           {
             "tap": {
               "code": "KC_PGUP"
             },
-            "glowColor": "#779DE8"
+            "glowColor": "#D62828"
           },
           {
             "tap": {
               "code": "KC_WH_U"
             },
-            "glowColor": "#779DE8"
+            "glowColor": "#D62828"
           },
           {
             "tap": null,
@@ -850,31 +850,31 @@
             "tap": {
               "code": "KC_LEFT"
             },
-            "glowColor": "#779DE8"
+            "glowColor": "#D62828"
           },
           {
             "tap": {
               "code": "KC_DOWN"
             },
-            "glowColor": "#779DE8"
+            "glowColor": "#D62828"
           },
           {
             "tap": {
               "code": "KC_RIGHT"
             },
-            "glowColor": "#779DE8"
+            "glowColor": "#D62828"
           },
           {
             "tap": {
               "code": "KC_PGDN"
             },
-            "glowColor": "#779DE8"
+            "glowColor": "#D62828"
           },
           {
             "tap": {
               "code": "KC_WH_D"
             },
-            "glowColor": "#779DE8"
+            "glowColor": "#D62828"
           },
           {
             "tap": null,
@@ -888,31 +888,31 @@
             "tap": {
               "code": "KC_MS_L"
             },
-            "glowColor": "#779DE8"
+            "glowColor": "#D62828"
           },
           {
             "tap": {
               "code": "KC_MS_D"
             },
-            "glowColor": "#779DE8"
+            "glowColor": "#D62828"
           },
           {
             "tap": {
               "code": "KC_MS_U"
             },
-            "glowColor": "#779DE8"
+            "glowColor": "#D62828"
           },
           {
             "tap": {
               "code": "KC_MS_R"
             },
-            "glowColor": "#779DE8"
+            "glowColor": "#D62828"
           },
           {
             "tap": {
               "code": "KC_BTN1"
             },
-            "glowColor": "#779DE8"
+            "glowColor": "#D62828"
           },
           {
             "tap": null,
@@ -986,25 +986,25 @@
             "tap": {
               "code": "KC_MPRV"
             },
-            "glowColor": "#779DE8"
+            "glowColor": "#D62828"
           },
           {
             "tap": {
               "code": "KC_MPLY"
             },
-            "glowColor": "#779DE8"
+            "glowColor": "#D62828"
           },
           {
             "tap": {
               "code": "KC_MNXT"
             },
-            "glowColor": "#779DE8"
+            "glowColor": "#D62828"
           },
           {
             "tap": {
               "code": "KC_MUTE"
             },
-            "glowColor": "#779DE8"
+            "glowColor": "#D62828"
           },
           {
             "tap": null,
@@ -1022,19 +1022,19 @@
             "tap": {
               "code": "KC_VOLD"
             },
-            "glowColor": "#779DE8"
+            "glowColor": "#D62828"
           },
           {
             "tap": {
               "code": "KC_VOLU"
             },
-            "glowColor": "#779DE8"
+            "glowColor": "#D62828"
           },
           {
             "tap": {
               "code": "KC_BTN2"
             },
-            "glowColor": "#779DE8"
+            "glowColor": "#D62828"
           },
           {
             "tap": null,

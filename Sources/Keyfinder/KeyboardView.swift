@@ -45,20 +45,20 @@ final class KeyboardView: NSView {
 
     override func draw(_ dirtyRect: NSRect) {
         drawCount += 1
-        NSColor(calibratedRed: 0.065, green: 0.075, blue: 0.095, alpha: 1).setFill()
+        Theme.blue.setFill()
         NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), xRadius: 19, yRadius: 19).fill()
-        NSColor.white.withAlphaComponent(0.13).setStroke()
+        Theme.border.setStroke()
         let border = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), xRadius: 19, yRadius: 19)
         border.lineWidth = 1; border.stroke()
 
-        drawText(presentedLayer?.name ?? "Keyfinder", in: NSRect(x: 25, y: 18, width: bounds.width * 0.56, height: 25), size: 20, weight: .semibold, color: .white, align: .left)
+        drawText(presentedLayer?.name ?? "Keyfinder", in: NSRect(x: 25, y: 18, width: bounds.width * 0.56, height: 25), size: 20, weight: .semibold, color: Theme.parchment, align: .left)
         let subtitle = (presentedLayer.map { "\($0.layoutTitle)  /  Moonlander" } ?? "Moonlander") + (unverified ? "  ·  Unverified revision" : "")
-        drawText(subtitle, in: NSRect(x: 26, y: 43, width: bounds.width * 0.58, height: 15), size: 10, color: .white.withAlphaComponent(0.48), align: .left)
-        let badge = arranging ? "DRAG TO POSITION" : preview ? "PREVIEW" : "LIVE"
-        let badgeWidth: CGFloat = arranging ? 126 : 69
+        drawText(subtitle, in: NSRect(x: 26, y: 43, width: bounds.width * 0.58, height: 15), size: 10, color: Theme.mutedText, align: .left)
+        let badge = unverified ? "UNVERIFIED" : arranging ? "DRAG TO POSITION" : preview ? "PREVIEW" : "LIVE"
+        let badgeWidth: CGFloat = unverified ? 94 : arranging ? 126 : 69
         let badgeRect = NSRect(x: bounds.width - badgeWidth - 25, y: 22, width: badgeWidth, height: 24)
-        NSColor.systemTeal.withAlphaComponent(0.13).setFill(); NSBezierPath(roundedRect: badgeRect, xRadius: 7, yRadius: 7).fill()
-        drawText(badge, in: badgeRect.insetBy(dx: 3, dy: 6), size: 9, weight: .semibold, color: .systemTeal)
+        (unverified ? Theme.red : Theme.orange).setFill(); NSBezierPath(roundedRect: badgeRect, xRadius: 7, yRadius: 7).fill()
+        drawText(badge, in: badgeRect.insetBy(dx: 3, dy: 6), size: 9, weight: .semibold, color: unverified ? Theme.parchment : Theme.blue)
 
         if let layer = presentedLayer {
             for key in geometry {
@@ -68,35 +68,35 @@ final class KeyboardView: NSView {
             let legend = arranging ? "Drag the keyboard, then choose Done arranging in Settings." :
                 layer.ambiguousCount > 0 ? "↳  Inherited keys show alternatives when lower layers may differ." :
                 layer.inheritedCount > 0 ? "↳  Dimmed keys inherit their action from a lower layer." : "Tap actions are primary. Hold actions appear below."
-            drawText(legend, in: NSRect(x: 25, y: bounds.height - 23, width: bounds.width - 50, height: 13), size: 10, color: .white.withAlphaComponent(0.42), align: .left)
+            drawText(legend, in: NSRect(x: 25, y: bounds.height - 23, width: bounds.width - 50, height: 13), size: 10, color: Theme.mutedText, align: .left)
         } else {
-            drawText(message ?? "Waiting for the keyboard", in: NSRect(x: 35, y: 92, width: bounds.width - 70, height: max(60, bounds.height - 115)), size: 14, color: .white.withAlphaComponent(0.8))
+            drawText(message ?? "Waiting for the keyboard", in: NSRect(x: 35, y: 92, width: bounds.width - 70, height: max(60, bounds.height - 115)), size: 14, color: Theme.parchment)
         }
     }
 
     private func draw(_ key: KeyGeometry, presentation: PresentedKey) {
         let path = path(for: key)
         let inherited = presentation.appearance == .inherited || presentation.appearance == .ambiguous
+        let unknown = presentation.appearance == .unknown
         let accent = useKeyColors ? NSColor(hex: presentation.color) : nil
-        let fill = accent?.blended(withFraction: 0.88, of: NSColor(calibratedWhite: 0.12, alpha: 1)) ??
-            NSColor(calibratedWhite: inherited ? 0.105 : 0.155, alpha: 1)
+        let fill = unknown ? Theme.blue : accent?.blended(withFraction: 0.85, of: Theme.blue) ?? (inherited ? Theme.surface : Theme.key)
         fill.setFill(); path.fill()
-        (selectedIndex == key.index ? NSColor.systemTeal : (accent?.withAlphaComponent(0.45) ?? NSColor.white.withAlphaComponent(inherited ? 0.09 : 0.16))).setStroke()
+        (selectedIndex == key.index || unknown ? Theme.orange : (accent?.withAlphaComponent(0.70) ?? Theme.border)).setStroke()
         path.lineWidth = selectedIndex == key.index ? 2 : 0.8; path.stroke()
         let point = center(for: key)
         NSGraphicsContext.saveGraphicsState()
         let transform = NSAffineTransform(); transform.translateX(by: point.x, yBy: point.y); transform.rotate(byDegrees: key.rotation); transform.concat()
         let width = key.width * unit - 9
         let height = key.height * unit - 8
-        let color: NSColor = presentation.appearance == .unknown ? .systemOrange : .white.withAlphaComponent(inherited ? 0.53 : 0.96)
+        let color = unknown ? Theme.orange : inherited ? Theme.mutedText : Theme.parchment
         let baseSize = min(19, max(10, unit * 0.30))
         let y: CGFloat = presentation.secondary.isEmpty ? -baseSize * 0.68 : -height * 0.30
         drawText(presentation.label, in: NSRect(x: -width / 2, y: y, width: width, height: baseSize * 1.45), size: baseSize, weight: .medium, color: color, shrink: true)
         if !presentation.secondary.isEmpty {
-            drawText(presentation.secondary, in: NSRect(x: -width / 2 + 1, y: height * 0.13, width: width - 2, height: min(15, unit * 0.25)), size: min(10, unit * 0.185), color: .white.withAlphaComponent(0.46), shrink: true)
+            drawText(presentation.secondary, in: NSRect(x: -width / 2 + 1, y: height * 0.13, width: width - 2, height: min(15, unit * 0.25)), size: min(10, unit * 0.185), color: Theme.mutedText, shrink: true)
         }
         if inherited {
-            drawText("↳", in: NSRect(x: width / 2 - 11, y: -height / 2 + 1, width: 10, height: 10), size: 8, color: .systemTeal.withAlphaComponent(0.6))
+            drawText("↳", in: NSRect(x: width / 2 - 11, y: -height / 2 + 1, width: 10, height: 10), size: 8, color: Theme.mutedText)
         }
         NSGraphicsContext.restoreGraphicsState()
     }
@@ -141,6 +141,6 @@ final class KeyboardView: NSView {
 extension NSColor {
     convenience init?(hex: String?) {
         guard let hex, hex.hasPrefix("#"), hex.count == 7, let value = UInt32(hex.dropFirst(), radix: 16) else { return nil }
-        self.init(calibratedRed: CGFloat((value >> 16) & 255) / 255, green: CGFloat((value >> 8) & 255) / 255, blue: CGFloat(value & 255) / 255, alpha: 1)
+        self.init(srgbRed: CGFloat((value >> 16) & 255) / 255, green: CGFloat((value >> 8) & 255) / 255, blue: CGFloat(value & 255) / 255, alpha: 1)
     }
 }
