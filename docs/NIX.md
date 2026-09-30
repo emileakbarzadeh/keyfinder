@@ -17,6 +17,7 @@ The macOS 26.4 SDK comes from the locked Nixpkgs `apple-sdk_26.src` output. Usin
 | `apps.<system>.default` | Launch the app; arguments pass through unchanged |
 | `apps.<system>.smoke-test` | AppKit checks with temporary windows and simulated USB events |
 | `apps.<system>.previews` | Render the bundled keyboard layers |
+| `apps.<system>.demo` | Generate the README GIF from the app's synthetic previews |
 | `apps.<system>.benchmark` | External CPU and memory measurement of the packaged app |
 | `checks.<system>.package` | Build the release app and run offline core checks |
 | `checks.<system>.module` | Evaluate actual nix-darwin configurations and check their generated service settings |
@@ -38,6 +39,7 @@ nix flake check --no-build --all-systems
 nix run . -- --diagnostics
 nix run .#smoke-test
 nix run .#previews
+nix run .#demo
 nix run .#benchmark -- --seconds 30 --output artifacts/idle-performance.json
 nix build .#dmg --out-link result-dmg
 ```
@@ -45,6 +47,12 @@ nix build .#dmg --out-link result-dmg
 The package's offline core checks run inside the build. GUI checks, preview rendering, and performance measurements run explicitly in your desktop session. They are not cached as build-time test results, and they do not run during system activation. The smoke command accepts an optional report path; previews accepts an optional output directory. Relative paths resolve from the directory where you invoke Nix.
 
 The benchmark starts its own app process and terminates only that process. Disconnect the keyboard and keep Settings closed when measuring the unplugged idle baseline. Reports are observations of the host and cannot be reproduced as fixed derivation outputs.
+
+The demo generator uses the packaged app's AppKit renderer, then composes a nine-second GIF with pinned Python, Pillow, and Inter fonts. It illustrates layers 1 and 2 followed by the hidden overlay on layer 0; it does not record the desktop or connect to a keyboard. These documentation tools add no dependencies to the installed app. Rendering runs in a graphical macOS session, so the GIF is a generated documentation asset rather than a sandboxed build output. To refresh the README asset:
+
+```sh
+nix run .#demo -- --output docs/assets/demo.gif
+```
 
 For development:
 

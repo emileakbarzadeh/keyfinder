@@ -97,6 +97,7 @@ let
       '';
 
   dmg = import ./dmg.nix { inherit pkgs appBundle; };
+  demo = import ./demo.nix { inherit pkgs appBundle; };
 
   smoke = pkgs.writeShellApplication {
     name = "keyfinder-smoke-test";
@@ -128,6 +129,7 @@ in
     default = app keyfinder;
     smoke-test = app smoke;
     previews = app previews;
+    demo = app demo;
     benchmark = app benchmark;
   };
   devShell = pkgs.mkShellNoCC {

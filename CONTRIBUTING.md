@@ -16,6 +16,8 @@ nix fmt
 
 For changes to windows, preferences, or app lifecycle, run `nix run .#smoke-test` in a graphical macOS session. For packaging changes, build `nix build .#dmg --out-link result-dmg`, mount the disk image, and verify that the copied app launches. See the packaging guide for signature and reproducibility checks.
 
+Regenerate the README animation with `nix run .#demo -- --output docs/assets/demo.gif`. The generator uses the bundled synthetic layout and the app's renderer, with Nix-pinned image tools and fonts. Keep the static keyboard preview available alongside the GIF.
+
 ## Changes and verification
 
 Keep commits focused and describe the user-visible behavior, the reason for the change, and the checks performed. Include screenshots for visible UI changes. Separate simulated behavior from hardware observations in reports; a passing fixture test is not evidence of a successful firmware flash or real USB pairing.
