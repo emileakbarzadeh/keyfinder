@@ -4,8 +4,12 @@
 
 # Keyfinder
 
+</div>
+
 > [!WARNING]
 > This project is AI-generated.
+
+<div align="center">
 
 **Your Moonlander’s layers, in plain sight.**
 
@@ -18,9 +22,9 @@ A quiet macOS menu bar app that shows what every key does, right when you need i
 
 [Download latest release](../../releases/latest) · [Get started](#get-started) · [Performance](#small-app-quiet-idle) · [nix-darwin](#add-it-to-nix-darwin) · [How it works](docs/USAGE.md)
 
-<img src="docs/assets/keyboard.png" width="1100" alt="Keyfinder’s Moonlander preview showing function keys, symbols, a number pad, and angled thumb clusters on layer 1">
+<img src="docs/assets/demo.gif" width="1100" alt="Animated Keyfinder demo: the Symbols and Navigation layers show their key legends, then the overlay hides on typing layer 0">
 
-*Actual app preview with a synthetic demo layout. Connect a Moonlander to load its installed Oryx revision.*
+*Simulated layer changes using the app’s synthetic demo: Symbols → Navigation → Typing (overlay hidden). [View the static keyboard preview](docs/assets/keyboard.png).*
 
 </div>
 
@@ -127,6 +131,7 @@ Transparent keys can inherit different actions from stacked layers. Stock Oryx r
 nix flake check                    # Build + offline core checks + module checks
 nix run .#smoke-test                # AppKit integration checks; opens temporary windows
 nix run .#previews                  # Render all bundled layers into artifacts/previews
+nix run .#demo                      # Generate the animated demo in artifacts/demo.gif
 nix run .#benchmark -- --seconds 30 # Measure the packaged app from a separate process
 nix develop                        # Pinned compiler, SDK, Python, and Nix formatter
 nix fmt
