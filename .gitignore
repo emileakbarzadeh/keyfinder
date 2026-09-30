@@ -4,3 +4,5 @@ dist/
 artifacts/
 *.xcuserstate
 .swiftpm/
+__pycache__/
+*.pyc
