@@ -44,7 +44,7 @@ nix run .#benchmark -- --seconds 30 --output artifacts/idle-performance.json
 nix build .#dmg --out-link result-dmg
 ```
 
-The package's offline core checks run inside the build. GUI checks, preview rendering, and performance measurements run explicitly in your desktop session. They are not cached as build-time test results, and they do not run during system activation. The smoke command accepts an optional report path; previews accepts an optional output directory. Alongside the bundled layers, previews renders a selected key and unverified-revision badge with Oryx colors disabled. Relative paths resolve from the directory where you invoke Nix.
+The package's offline core checks run inside the build. GUI checks, preview rendering, and performance measurements run explicitly in your desktop session. They are not cached as build-time test results, and they do not run during system activation. The smoke command accepts an optional report path; previews accepts an optional output directory. Previews renders each bundled layer in Light and Dark, plus a selected key and unverified-revision badge with Oryx colors disabled. Light assets use a `-light` filename suffix. Relative paths resolve from the directory where you invoke Nix.
 
 The benchmark starts its own app process and terminates only that process. Disconnect the keyboard and keep Settings closed when measuring the unplugged idle baseline. Reports are observations of the host and cannot be reproduced as fixed derivation outputs.
 
@@ -52,6 +52,7 @@ The demo generator uses the packaged app's AppKit renderer, then composes a nine
 
 ```sh
 nix run .#demo -- --output docs/assets/demo.gif
+nix run .#demo -- --appearance light --output docs/assets/demo-light.gif
 ```
 
 For development:

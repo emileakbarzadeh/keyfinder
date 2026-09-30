@@ -8,14 +8,14 @@ Verified September 30, 2026 on macOS 26.6.2, Apple Silicon. The Nix package uses
 | --- | --- |
 | Core checks | 13 tests, 1,460 assertions passed |
 | Core checks plus explicit live Oryx query | 14 tests, 1,462 assertions passed using a supplied exact-revision URL; no preset account or layout in the runner |
-| Nix-packaged release AppKit integration | 38 checks passed, including demo setup, menu bar visibility, and Settings lifecycle |
-| Visual inspection | All three keyboard layers and settings pages rendered and reviewed, including selected keys, disabled Oryx colors, and the unverified-revision badge |
+| Nix-packaged release AppKit integration | 48 checks passed, including appearance changes, preference migration, menu bar visibility, and Settings lifecycle |
+| Visual inspection | All three keyboard layers and settings pages rendered and reviewed in Light and Dark, including selected keys, disabled Oryx colors, and the unverified-revision badge |
 | Standalone packaging | The Nix DMG mounted read-only; both the mounted app and a copy installed outside the store passed signature verification and bundled-layout diagnostics |
 | macOS deployment target | `26.0` in both Info.plist and the Mach-O build-version load command |
 | Local signature | `codesign --verify --strict` passed; ad-hoc signature |
-| App bundle size | 1,964,458 bytes (about 1.87 MiB) |
-| Nix runtime closure | 2,017,944 bytes; only the launcher and app bundle, with no compiler or SDK dependency |
-| Disk image size | 2,363,392 bytes (about 2.25 MiB), uncompressed |
+| App bundle size | 2,014,685 bytes (about 1.92 MiB) |
+| Nix runtime closure | 2,068,176 bytes; only the launcher and app bundle, with no compiler or SDK dependency |
+| Disk image size | 2,412,544 bytes (about 2.30 MiB), uncompressed |
 | Release workflow | `actionlint` passed; native Intel build and actual GitHub release publication remain untested |
 
 The integration checks use the actual AppDelegate, AppModel, repository, preferences, settings views, status item, and NSPanel. Keyboard events, revision-fetch responses, and launch/reopen notifications are simulated. They cover:
@@ -28,12 +28,14 @@ The integration checks use the actual AppDelegate, AppModel, repository, prefere
 - Keeping live labels unchanged after an Oryx preview refresh, activating the matching revision after a simulated flash/reconnect, and reusing its cache.
 - Showing no old key labels for an unavailable new revision, preserving the error across layer changes, and rejecting a late response from an earlier connection.
 - Preference persistence and preview cleanup.
+- Switching Settings and the visible overlay between Light, Dark, and System; following inherited appearance changes; restoring the saved choice on launch; and accepting older or unknown theme preferences without resetting other settings.
+- Skipping hidden-overlay rendering during a system theme change, then drawing the current theme when shown again.
 - Preserving existing settings when upgrading, hiding and restoring the menu bar icon immediately, and keeping the monitor and overlay active while the icon is hidden.
 - Showing Settings on a direct launch with the icon hidden, restoring closed and minimized Settings windows on reopen, and keeping `--background` startup quiet until an explicit reopen.
 
 The executable's `--smoke-test` command returns a nonzero exit code if any check fails. Rendered settings artifacts use AppKit's view rendering and do not require screen recording permission.
 
-Palette text contrast was checked in sRGB on opaque backgrounds: parchment on blue is 12.44:1, blue on orange is 5.26:1, and parchment on red is 4.51:1. Secondary key labels remain at least 4.53:1 against the lightest permitted Oryx tint, after AppKit color conversion. Custom buttons and layer selectors use blue/orange text pairs. The overlay's user-adjustable opacity can change contrast against the desktop. The README GIF converts AppKit captures to sRGB before encoding.
+Text contrast was checked in sRGB on opaque backgrounds: parchment on charcoal is 16.76:1, dark text on parchment is 14.21:1, charcoal on orange is 7.09:1, and parchment on red is 4.51:1. Secondary key labels remain at least 4.59:1 across both themes, including the darkest and lightest possible Oryx tints. The overlay's user-adjustable opacity can change contrast against the desktop. The README GIF converts AppKit captures to sRGB before encoding.
 
 **Measured idle performance**
 
@@ -41,11 +43,11 @@ The measurement launched the actual Nix-packaged release app with `--background`
 
 | Metric | Observed |
 | --- | --- |
-| Measurement duration | 30.005 seconds |
-| App CPU time during the interval | 0.000063 seconds |
-| Average CPU utilization | 0.000211% of one core |
-| Resident memory at end | 46.7 MiB |
-| Context switches during interval | 16 |
+| Measurement duration | 30.009 seconds |
+| App CPU time during the interval | 0.000049 seconds |
+| Average CPU utilization | 0.000164% of one core |
+| Resident memory at end | 46.4 MiB |
+| Context switches during interval | 19 |
 | Mach messages received during interval | 2 |
 | Threads at end | 3 |
 
@@ -89,11 +91,11 @@ codesign --verify --strict result/Applications/Keyfinder.app
 Generated reports and images are in `artifacts/`. The verified release executable SHA-256 is:
 
 ```text
-88c1e4bfa24c91de3d227a08b13f10050e4c39d84ae7f58bcd4fb0940e6b1e47
+1877b4b532b11205c9a7a17281437a4fa7a8dcdeda5761333c67f08893c6f95c
 ```
 
 The verified DMG SHA-256 is:
 
 ```text
-088f4141c93c0658da43f5f3ed8a1e80370bf42f063ce38762c5aa745f031f5c
+3d6d3841fef24da98697decc01e0da46a352fd574a4fd1d72f7f074b4f7fd2f9
 ```

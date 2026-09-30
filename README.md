@@ -13,16 +13,19 @@
 
 A macOS app that shows your Moonlander’s active layer and the action assigned to each key.
 
-![macOS 26+](https://img.shields.io/badge/macOS-26%2B-003049?style=flat-square&labelColor=003049&logo=apple&logoColor=f4f3ee)
-![ZSA Moonlander](https://img.shields.io/badge/ZSA-Moonlander-d62828?style=flat-square&labelColor=003049)
-![Built with Swift](https://img.shields.io/badge/Swift-native-003049?style=flat-square&labelColor=003049&logo=swift&logoColor=f77f00)
-![Packaged with Nix](https://img.shields.io/badge/Nix-flake%20%2B%20nix--darwin-003049?style=flat-square&labelColor=003049&logo=nixos&logoColor=f4f3ee)
+![macOS 26+](https://img.shields.io/badge/macOS-26%2B-111315?style=flat-square&labelColor=111315&logo=apple&logoColor=f4f3ee)
+![ZSA Moonlander](https://img.shields.io/badge/ZSA-Moonlander-d62828?style=flat-square&labelColor=111315)
+![Built with Swift](https://img.shields.io/badge/Swift-native-111315?style=flat-square&labelColor=111315&logo=swift&logoColor=f77f00)
+![Packaged with Nix](https://img.shields.io/badge/Nix-flake%20%2B%20nix--darwin-111315?style=flat-square&labelColor=111315&logo=nixos&logoColor=f4f3ee)
 
 [Download](../../releases/latest) · [Installation](#installation) · [Performance](#performance) · [nix-darwin](#nix-darwin) · [User guide](docs/USAGE.md)
 
-<img src="docs/assets/demo.gif" width="1100" alt="Animated Keyfinder demo: the Symbols and Navigation layers show their key legends, then the overlay hides on typing layer 0">
+<picture>
+  <source media="(prefers-color-scheme: light)" srcset="docs/assets/demo-light.gif">
+  <img src="docs/assets/demo.gif" width="1100" alt="Animated Keyfinder demo: the Symbols and Navigation layers show their key legends, then the overlay hides on typing layer 0">
+</picture>
 
-*Simulated layer changes: Symbols → Navigation → Typing (overlay hidden). [Static preview](docs/assets/keyboard.png).*
+*Simulated layer changes: Symbols → Navigation → Typing (overlay hidden). Static previews: [dark](docs/assets/keyboard.png) · [light](docs/assets/keyboard-light.png).*
 
 </div>
 
@@ -34,7 +37,7 @@ The overlay appears on layers 1 and above and hides on layer 0. It updates as yo
 | :--- | :--- |
 | Oryx synchronization | Loads the installed revision when the keyboard connects. Updates after flashing and reconnecting. |
 | Keyboard layout | All 72 keys, angled thumb clusters, tap/hold actions, and Oryx key colors. |
-| Appearance | Adjustable size, opacity, display, position, and appearance delay. Optional menu bar icon. |
+| Appearance | Light, Dark, or System theme. Adjustable size, opacity, display, position, and delay. Optional menu bar icon. |
 | Offline use | Cached layouts and a bundled three-layer demo. Layer previews in Settings. |
 | Privacy | Physical keypress reports are discarded. No typing history is recorded. |
 
@@ -46,7 +49,7 @@ Keyfinder waits for USB and system events, with no polling, repeating timers, or
 
 | Measured idle CPU | Resident memory | App bundle |
 | :---: | :---: | :---: |
-| **~0.0002%** of one core | **~47 MiB** | **1.9 MiB** |
+| **~0.0002%** of one core | **~46 MiB** | **1.9 MiB** |
 
 Measured over 30 seconds on Apple Silicon running macOS 26.6.2, using the Nix release build with Settings closed and no keyboard connected. The measurements exclude startup and do not cover a connected keyboard or visible overlay. The app size excludes build tools. [Verification details](docs/VERIFICATION.md).
 
@@ -117,7 +120,12 @@ When the module handles startup, leave the app’s “Launch Keyfinder at login�
 
 ## Settings
 
-<img src="docs/assets/appearance.png" width="800" alt="Keyfinder’s Appearance settings with controls for width, opacity, delay, screen placement, key colors, and launch at login">
+<picture>
+  <source media="(prefers-color-scheme: light)" srcset="docs/assets/appearance-light.png">
+  <img src="docs/assets/appearance.png" width="800" alt="Keyfinder’s Appearance settings with System, Light, and Dark themes, overlay controls, and launch at login">
+</picture>
+
+Choose **Appearance → Color theme → System, Light, or Dark**. System follows macOS automatically. The theme applies to Settings and the overlay.
 
 Settings lets you preview layers, inspect key actions, and drag the overlay into position. The overlay accepts clicks while arranging; it passes them through when you finish.
 

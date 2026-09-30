@@ -10,21 +10,15 @@ from PIL import Image, ImageChops, ImageCms, ImageColor, ImageDraw, ImageFont
 
 
 WIDTH, HEIGHT = 1200, 800
-BACKGROUND = "#003049"
-FOREGROUND = "#f4f3ee"
 ORANGE = "#f77f00"
 RED = "#d62828"
-ACCENTS = {0: FOREGROUND, 1: ORANGE, 2: RED}
+INK = "#111315"
+PARCHMENT = "#f4f3ee"
+PALETTES = {
+    "dark": dict(background=INK, foreground=PARCHMENT, surface="#1c1f22", muted="#b3b8be", border="#454a50"),
+    "light": dict(background=PARCHMENT, foreground="#202326", surface="#ffffff", muted="#50565b", border="#cecfca"),
+}
 SCENES = [(1, 3500), (2, 3500), (0, 2000)]
-
-
-def tint(fraction):
-    return tuple(round(a + (b - a) * fraction) for a, b in zip(ImageColor.getrgb(BACKGROUND), ImageColor.getrgb(FOREGROUND)))
-
-
-SURFACE = tint(0.06)
-MUTED = tint(0.74)
-BORDER = tint(0.24)
 
 
 def font(path, size, bold=False):
@@ -33,40 +27,42 @@ def font(path, size, bold=False):
     return result
 
 
-def indexed_frame(frame, palette):
+def indexed_frame(frame, palette, reserved):
     indexed = frame.quantize(palette=palette, dither=Image.Dither.NONE)
     # Pillow's palette lookup groups nearby RGB values; preserve exact flat fills.
-    for index, color in enumerate((BACKGROUND, FOREGROUND, ORANGE, RED), start=252):
+    for index, color in enumerate(reserved, start=256 - len(reserved)):
         r, g, b = ImageChops.difference(frame, Image.new("RGB", frame.size, color)).split()
         mask = ImageChops.lighter(ImageChops.lighter(r, g), b).point(lambda value: 255 if value == 0 else 0)
         indexed.paste(index, mask=mask)
     return indexed
 
 
-def scene(layer, previews, typeface):
-    canvas = Image.new("RGB", (WIDTH, HEIGHT), BACKGROUND)
+def scene(layer, previews, typeface, appearance):
+    colors = PALETTES[appearance]
+    canvas = Image.new("RGB", (WIDTH, HEIGHT), colors["background"])
     draw = ImageDraw.Draw(canvas)
-    accent = ACCENTS[layer]
+    accent = {0: colors["foreground"], 1: ORANGE, 2: RED}[layer]
 
-    draw.text((44, 41), "KEYFINDER", font=font(typeface, 27, True), fill=FOREGROUND, anchor="lm")
-    draw.text((44, 77), "Moonlander layer overlay", font=font(typeface, 19), fill=MUTED, anchor="lm")
+    draw.text((44, 41), "KEYFINDER", font=font(typeface, 27, True), fill=colors["foreground"], anchor="lm")
+    draw.text((44, 77), "Moonlander layer overlay", font=font(typeface, 19), fill=colors["muted"], anchor="lm")
 
     cursor = 648
     for index, title, width in [(0, "0 · Typing", 144), (1, "1 · Symbols", 160), (2, "2 · Navigation", 184)]:
         selected = index == layer
         draw.rounded_rectangle(
             (cursor, 30, cursor + width, 88), radius=16,
-            fill=accent if selected else SURFACE,
-            outline=FOREGROUND if selected else BORDER, width=2,
+            fill=accent if selected else colors["surface"],
+            outline=accent if selected else colors["border"], width=2,
         )
         draw.text(
             (cursor + width / 2, 59), title, font=font(typeface, 19, selected),
-            fill=(FOREGROUND if layer == 2 else BACKGROUND) if selected else MUTED, anchor="mm",
+            fill=(colors["background"] if layer == 0 else PARCHMENT if layer == 2 else INK) if selected else colors["muted"], anchor="mm",
         )
         cursor += width + 10
 
     if layer:
-        with Image.open(previews / f"layer-{layer}.png") as rendered:
+        suffix = "-light" if appearance == "light" else ""
+        with Image.open(previews / f"layer-{layer}{suffix}.png") as rendered:
             # AppKit captures can use a display profile; GIF has no color profile.
             profile = rendered.info.get("icc_profile")
             overlay = ImageCms.profileToProfile(
@@ -77,14 +73,14 @@ def scene(layer, previews, typeface):
     else:
         # This empty stage illustrates hiding; it is not an app window.
         draw.rounded_rectangle((562, 313, 638, 389), radius=23, fill=ORANGE)
-        draw.text((600, 351), "0", font=font(typeface, 35, True), fill=BACKGROUND, anchor="mm")
-        draw.text((600, 445), "Typing layer", font=font(typeface, 42, True), fill=FOREGROUND, anchor="mm")
-        draw.text((600, 495), "Layer 0 hides the overlay.", font=font(typeface, 23), fill=MUTED, anchor="mm")
+        draw.text((600, 351), "0", font=font(typeface, 35, True), fill=INK, anchor="mm")
+        draw.text((600, 445), "Typing layer", font=font(typeface, 42, True), fill=colors["foreground"], anchor="mm")
+        draw.text((600, 495), "Layer 0 hides the overlay.", font=font(typeface, 23), fill=colors["muted"], anchor="mm")
 
     draw.ellipse((46, 762, 56, 772), fill=accent)
     state = "Overlay visible" if layer else "Overlay hidden"
-    draw.text((70, 767), f"Layer {layer} · {state}", font=font(typeface, 17), fill=MUTED, anchor="lm")
-    draw.text((1156, 767), "OFFLINE DEMO", font=font(typeface, 15, True), fill=MUTED, anchor="rm")
+    draw.text((70, 767), f"Layer {layer} · {state}", font=font(typeface, 17), fill=colors["muted"], anchor="lm")
+    draw.text((1156, 767), "OFFLINE DEMO", font=font(typeface, 15, True), fill=colors["muted"], anchor="rm")
     return canvas
 
 
@@ -93,6 +89,7 @@ def main():
     parser.add_argument("--app", type=Path, required=True)
     parser.add_argument("--font", type=Path, required=True)
     parser.add_argument("--output", type=Path, default=Path("artifacts/demo.gif"))
+    parser.add_argument("--appearance", choices=PALETTES, default="dark")
     args = parser.parse_args()
 
     with tempfile.TemporaryDirectory(prefix="keyfinder-demo-") as directory:
@@ -101,17 +98,19 @@ def main():
             [str(args.app / "Contents/MacOS/Keyfinder"), "--render-previews", str(previews)],
             check=True,
         )
-        frames = [scene(layer, previews, args.font) for layer, _ in SCENES]
+        frames = [scene(layer, previews, args.font, args.appearance) for layer, _ in SCENES]
 
     # One palette keeps text, backgrounds, and accents stable between scenes.
     atlas = Image.new("RGB", (WIDTH, HEIGHT * len(frames)))
     for index, frame in enumerate(frames):
         atlas.paste(frame, (0, HEIGHT * index))
-    palette = atlas.quantize(colors=252, method=Image.Quantize.MEDIANCUT)
-    # Reserve the four brand colors so quantization does not shift flat fills.
-    brand_colors = [channel for color in (BACKGROUND, FOREGROUND, ORANGE, RED) for channel in ImageColor.getrgb(color)]
-    palette.putpalette(palette.getpalette()[:252 * 3] + brand_colors)
-    frames = [indexed_frame(frame, palette) for frame in frames]
+    reserved = [PALETTES[args.appearance]["background"], PALETTES[args.appearance]["foreground"], ORANGE, RED, INK, PARCHMENT]
+    color_count = 256 - len(reserved)
+    palette = atlas.quantize(colors=color_count, method=Image.Quantize.MEDIANCUT)
+    # Reserve flat fills so quantization does not shift them between scenes.
+    flat_colors = [channel for color in reserved for channel in ImageColor.getrgb(color)]
+    palette.putpalette(palette.getpalette()[:color_count * 3] + flat_colors)
+    frames = [indexed_frame(frame, palette, reserved) for frame in frames]
     args.output.parent.mkdir(parents=True, exist_ok=True)
     frames[0].save(
         args.output, format="GIF", save_all=True, append_images=frames[1:],
