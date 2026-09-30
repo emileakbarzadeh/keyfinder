@@ -34,6 +34,7 @@ import ServiceManagement
     private var previewGeneration = UUID()
     private var observers: [NSObjectProtocol] = []
     private var blockingProblem: String?
+    private var layoutFailure: String?
     var onStatusChange: (() -> Void)?
 
     init(geometry: [KeyGeometry], monitor: any KeyboardMonitoring, repository: LayoutRepository,
@@ -96,7 +97,7 @@ import ServiceManagement
             session.connect(identity: identity)
             connected = true; identityVerified = identity != nil
             installedRevision = identity?.revisionID; currentLayer = nil; protocolVersion = nil
-            liveLayers = [:]; blockingProblem = nil
+            liveLayers = [:]; blockingProblem = nil; layoutFailure = nil
             status = "Connecting to Moonlander"
             connectionDetail = identity.map { "Layout \($0.layoutID) · revision \($0.revisionID)" } ?? "Reading the installed Oryx revision…"
             loadInstalled()
@@ -117,7 +118,7 @@ import ServiceManagement
             installedTask?.cancel(); installedTask = nil
             session.disconnect(); liveLayers = [:]
             connected = false; identityVerified = false; installedRevision = nil; currentLayer = nil; protocolVersion = nil
-            blockingProblem = nil
+            blockingProblem = nil; layoutFailure = nil
             status = isPaused ? "Keyfinder is paused" : "Waiting for your Moonlander"
             connectionDetail = isPaused ? "USB monitoring is stopped until you resume." : "Connect your keyboard when you’re ready. Preview works offline."
         case .problem(let message, let blocking):
@@ -128,20 +129,25 @@ import ServiceManagement
     }
 
     private func loadInstalled() {
+        layoutFailure = nil
         guard let lease = session.lease else {
-            connectionDetail = "The installed Oryx revision is unknown. Retry, or select a specific saved revision in Layout settings."
+            status = "Layout not identified"
+            layoutFailure = "The installed Oryx revision is unknown. Retry, or select a specific saved revision in Layout settings."
+            connectionDetail = layoutFailure!
             return
         }
         installedTask = Task { [weak self, repository] in
             do {
                 let snapshot = try await repository.installed(lease.identity)
                 guard !Task.isCancelled, let self, self.session.accept(snapshot, for: lease) else { return }
+                self.layoutFailure = nil
                 self.liveLayers = LabelResolver.prepare(snapshot)
                 self.updateConnectedStatus()
                 self.synchronizeOverlay(); self.onStatusChange?()
             } catch {
                 guard !Task.isCancelled, let self, self.session.lease == lease else { return }
-                self.connectionDetail = "The installed revision could not be loaded. \(error.localizedDescription)"
+                self.layoutFailure = "The installed revision could not be loaded. \(error.localizedDescription)"
+                self.connectionDetail = self.layoutFailure!
                 self.status = "Layout unavailable"
                 self.synchronizeOverlay(); self.onStatusChange?()
             }
@@ -151,6 +157,11 @@ import ServiceManagement
     private func updateConnectedStatus() {
         guard session.connected else { return }
         guard blockingProblem == nil else { return }
+        if let layoutFailure {
+            status = session.identity == nil ? "Layout not identified" : "Layout unavailable"
+            connectionDetail = layoutFailure
+            return
+        }
         if session.snapshot != nil {
             status = session.layer.map { $0 == 0 ? "Connected · typing layer" : "Connected · layer \($0)" } ?? "Connected · awaiting layer"
             connectionDetail = "Installed revision \(session.identity?.revisionID ?? "unknown")" + (identityVerified ? " · automatic sync" : " · manually selected, unverified")
@@ -246,7 +257,12 @@ import ServiceManagement
     func togglePause() {
         isPaused.toggle()
         isPreviewingOverlay = false; isArranging = false
-        if isPaused { monitor.stop(); overlay.hide() } else { monitor.start() }
+        if isPaused { monitor.stop(); overlay.hide() }
+        else {
+            status = "Waiting for your Moonlander"
+            connectionDetail = "Connect your keyboard when you’re ready. Preview works offline."
+            monitor.start()
+        }
         onStatusChange?()
     }
     func retryConnection() {
@@ -272,6 +288,7 @@ import ServiceManagement
             overlay.show(selectedPreview, preferences: preferences, preview: true, arranging: isArranging)
         } else if !isPaused, session.shouldShowOverlay {
             if let blockingProblem { overlay.show(nil, message: blockingProblem, preferences: preferences) }
+            else if let layoutFailure { overlay.show(nil, message: layoutFailure, preferences: preferences) }
             else if let layer = session.layer, let prepared = liveLayers[layer] { overlay.show(prepared, preferences: preferences, unverified: !identityVerified) }
             else {
                 let text = session.snapshot == nil ? "Loading the installed layout. If it cannot be loaded, open Keyfinder settings to retry or import a snapshot." : "This layer is missing from the installed layout. Open Keyfinder settings to check the revision."

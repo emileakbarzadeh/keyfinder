@@ -130,7 +130,7 @@ import KeyfinderCore
                 appModel.togglePause()
                 checks["pause_stops_usb_monitoring"] = !monitor.running && !overlay.panel.isVisible
                 appModel.togglePause()
-                checks["resume_restarts_usb_monitoring"] = monitor.running
+                checks["resume_restarts_usb_monitoring"] = monitor.running && appModel.status == "Waiting for your Moonlander"
                 let requests = await client.requests
                 checks["no_network_for_bundled_layout_or_idle"] = requests.isEmpty
                 checks["preference_round_trip"] = Preferences.load(from: defaults) == appModel.preferences
@@ -161,6 +161,8 @@ import KeyfinderCore
                 monitor.emit(.layer(1))
                 try await waitUntil { appModel.status == "Layout unavailable" }
                 checks["uncached_offline_revision_never_shows_old_labels"] = overlay.panel.isVisible && overlay.keyboardView.presentedLayer == nil
+                monitor.emit(.layer(2))
+                checks["failed_layout_stays_unavailable_across_layer_changes"] = appModel.status == "Layout unavailable" && overlay.keyboardView.message?.contains("could not be loaded") == true
 
                 let delayed = try revision(of: snapshot, id: "testDelayed", replacementCode: "KC_F23")
                 await client.block(delayed)

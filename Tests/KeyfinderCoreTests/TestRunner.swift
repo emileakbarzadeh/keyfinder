@@ -1,4 +1,5 @@
 import Foundation
+import KeyfinderCore
 
 enum TestFailure: Error { case missingValue }
 private var failures: [String] = []
@@ -48,7 +49,17 @@ func require<T>(_ value: T?, file: String = #filePath, line: Int = #line) throws
         }
         do { try await RepositoryTests().testBundledAndCachedLayoutAvoidNetworkAndRefreshDoesNotReplaceIdentity() }
         catch { failures.append("Repository checks: \(error)") }
-        if failures.isEmpty { print("PASS — \(tests.count + 1) tests, \(assertions) assertions") }
+        var testCount = tests.count + 1
+        if CommandLine.arguments.contains("--live-oryx") {
+            testCount += 1
+            do {
+                let snapshot = try await OryxClient().fetch(layoutID: "exampleLayout", revisionID: "exampleRevision")
+                expectEqual(snapshot.identity, try LayoutIdentity(serial: "exampleLayout/exampleRevision"))
+                expectEqual(snapshot.layers.map(\.keys.count), [72, 72, 72])
+                print("PASS live Oryx exact-revision retrieval")
+            } catch { failures.append("Live Oryx retrieval: \(error)") }
+        }
+        if failures.isEmpty { print("PASS — \(testCount) tests, \(assertions) assertions") }
         else { for failure in failures { fputs(failure + "\n", stderr) }; fputs("\(failures.count) checks failed.\n", stderr) }
         exit(failures.isEmpty ? 0 : 1)
     }
