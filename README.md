@@ -1,11 +1,11 @@
-> [!WARNING]
-> This project is AI-generated.
-
 <div align="center">
 
 <img src="docs/assets/icon.png" width="96" height="96" alt="Keyfinder icon">
 
 # Keyfinder
+
+> [!WARNING]
+> This project is AI-generated.
 
 **Your Moonlander’s layers, in plain sight.**
 
@@ -20,7 +20,7 @@ A quiet macOS menu bar app that shows what every key does, right when you need i
 
 <img src="docs/assets/keyboard.png" width="1100" alt="Keyfinder’s Moonlander preview showing function keys, symbols, a number pad, and angled thumb clusters on layer 1">
 
-*Actual app preview. Your installed Oryx layout supplies the legends.*
+*Actual app preview with a synthetic demo layout. Connect a Moonlander to load its installed Oryx revision.*
 
 </div>
 
@@ -54,7 +54,7 @@ There is no periodic Oryx refresh. A layout download happens only for an uncache
 
 Requires **macOS 26 or later**. [Download the latest release →](../../releases/latest)
 
-Choose `Keyfinder-macOS-arm64.dmg` for Apple Silicon or `Keyfinder-macOS-x86_64.dmg` for Intel. Open the disk image, drag **Keyfinder.app** to Applications, and open it. Settings opens on first launch with an offline preview; connect your Moonlander when ready. Nix is not required to run the downloaded app.
+Choose `Keyfinder-macOS-arm64.dmg` for Apple Silicon or `Keyfinder-macOS-x86_64.dmg` for Intel. Open the disk image, drag **Keyfinder.app** to Applications, and open it. Settings opens with a synthetic offline demo. Connect your Moonlander to load its installed layout, or paste an Oryx URL in **Layout & connection**. Nix is not required to run the downloaded app.
 
 The downloads are signed ad hoc and are not notarized. If macOS blocks opening the app, use **System Settings → Privacy & Security → Open Anyway** after attempting to open it. If macOS requests Input Monitoring access, grant it to Keyfinder and retry the connection from Settings.
 
@@ -81,7 +81,7 @@ Pushing a Git tag builds and checks both architectures, then publishes the disk 
 
 ## Add it to nix-darwin
 
-Add the Keyfinder flake as an input to your existing configuration. This local-path example works before publishing the repository; replace the path with your checkout’s absolute path:
+Add your Keyfinder checkout as a flake input to an existing nix-darwin configuration. Replace the example path with the checkout’s absolute path:
 
 ```nix
 {
@@ -136,6 +136,6 @@ The Swift core covers layouts, labels, USB packet decoding, and caching. AppKit,
 
 Physical Moonlander pairing, real layer changes, and flash/reconnect behavior still need hardware acceptance testing. The current verification uses protocol fixtures, simulated USB events, and a live Oryx revision fetch. [Full verification record →](docs/VERIFICATION.md)
 
-[Architecture & product plan](PLAN.md) · [User guide](docs/USAGE.md) · [Nix packaging](docs/NIX.md)
+[Architecture](docs/ARCHITECTURE.md) · [Contributing](CONTRIBUTING.md) · [User guide](docs/USAGE.md) · [Nix packaging](docs/NIX.md)
 
 Built for [ZSA’s Moonlander](https://www.zsa.io/moonlander), using its [Oryx protocol](https://github.com/zsa/qmk_modules/tree/main/oryx). Keyfinder is an independent project.

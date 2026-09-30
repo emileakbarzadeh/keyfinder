@@ -2,9 +2,11 @@
 
 Keyfinder is a macOS 26+ menu bar app for the ZSA Moonlander. [Download a disk image](../../../releases/latest) or [build and install with Nix](NIX.md), then open the app. Its keyboard icon lives in the menu bar by default; there is no Dock icon.
 
-On first launch, Settings opens with an offline keyboard preview. The bundled [example layout](https://configure.zsa.io/moonlander/layouts/exampleLayout/exampleRevision/0), revision `exampleRevision`, has three layers and lets you explore before connecting a keyboard. It is a starting example; the live overlay uses your keyboard's installed identity.
+On first launch, Settings opens with **Keyfinder Demo**, a synthetic three-layer example for typing, symbols, and navigation. The demo belongs to no Oryx account and has no online configuration. Connect a Moonlander to load its installed revision automatically, paste a layout URL in **Layout & connection**, or import a saved snapshot. The demo cannot be assigned to an unidentified keyboard.
 
 Turn off **Appearance → Show menu bar icon** to hide the icon immediately. The preference persists across launches and does not pause the overlay or USB monitoring. Open Keyfinder from Applications or Spotlight to show Settings again; this also restores a closed or minimized Settings window when the app is already running. Login-item and `--background` startup do not open Settings. You can restore the icon or quit Keyfinder from the Application section in Appearance.
+
+The app identifier is `io.keyfinder.app`. Earlier development builds used a different identifier, so their preferences, login-item registration, and macOS permissions are not reused. Disable an older build's login item before switching, then configure the new app as needed.
 
 ## Everyday use
 
@@ -22,7 +24,7 @@ Oryx firmware encodes `layoutID/revisionID` in the USB serial descriptor. Keyfin
 
 An Oryx edit that has not been flashed does not change the live overlay. “Load / refresh preview” retrieves the URL's chosen revision, or the latest revision when the URL contains `latest`. The preview stays separate from the installed layout. Refreshing never flashes firmware, switches keyboard layers, or changes lighting.
 
-Validated snapshots are cached under `~/Library/Application Support/Keyfinder/Layouts`. The bundled revision also acts as an offline cache. If a newly flashed revision cannot be fetched, Keyfinder displays an unavailable state instead of old key labels. Import/export uses Keyfinder's JSON snapshot format and preserves Oryx action data.
+Validated snapshots are cached under `~/Library/Application Support/Keyfinder/Layouts`. The synthetic demo remains available as an offline preview. If a newly flashed revision cannot be fetched, Keyfinder displays an unavailable state instead of old key labels. Import/export uses Keyfinder's JSON snapshot format and preserves Oryx action data.
 
 If the firmware cannot identify its layout, you can explicitly choose the preview revision for that connection. The overlay labels this selection as unverified.
 
@@ -50,4 +52,4 @@ Real device events, system notifications, UI interaction, and layout downloads p
 
 ## Protocol and geometry references
 
-USB protocol and device identity behavior follow ZSA's [Oryx module](https://github.com/zsa/qmk_modules/tree/main/oryx) and [Zapp](https://github.com/zsa/zapp). Physical key coordinates and matrix positions follow the [Moonlander definition](https://github.com/zsa/qmk_firmware/blob/93b2b9ec3368f86c5eb5a2e3f934049f8daef885/keyboards/zsa/moonlander/reva/keyboard.json), with thumb-cluster presentation adjusted for the Moonlander shape. See the [product plan](../PLAN.md) for pinned research references.
+USB protocol and device identity behavior follow ZSA's [Oryx module](https://github.com/zsa/qmk_modules/tree/main/oryx) and [Zapp](https://github.com/zsa/zapp). Physical key coordinates and matrix positions follow the [Moonlander definition](https://github.com/zsa/qmk_firmware/blob/93b2b9ec3368f86c5eb5a2e3f934049f8daef885/keyboards/zsa/moonlander/reva/keyboard.json), with thumb-cluster presentation adjusted for the Moonlander shape. See the [architecture](ARCHITECTURE.md) for pinned protocol references.

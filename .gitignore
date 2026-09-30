@@ -4,6 +4,7 @@ dist/
 artifacts/
 *.xcuserstate
 .swiftpm/
+.vscode/
 __pycache__/
 *.pyc
 result

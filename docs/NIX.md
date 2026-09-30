@@ -52,10 +52,11 @@ For development:
 nix develop
 swift build
 swift run KeyfinderCoreChecks
-swift run KeyfinderCoreChecks --live-oryx
 ```
 
-The last command explicitly contacts Oryx; the ordinary build does not. To update pinned dependencies, run `nix flake update`, review `flake.lock`, then rebuild and rerun checks. Updating the compiler also requires reviewing the URL and content hash in `nix/toolchain.nix`.
+Core checks use synthetic fixtures and do not contact Oryx. To check the service explicitly, run `swift run KeyfinderCoreChecks --live-oryx '<exact-revision Moonlander URL>'` with a URL you choose; `latest` URLs are rejected so the expected identity is unambiguous. No account or layout URL is built into the test runner.
+
+To update pinned dependencies, run `nix flake update`, review `flake.lock`, then rebuild and rerun checks. Updating the compiler also requires reviewing the URL and content hash in `nix/toolchain.nix`.
 
 ## Reproducibility
 

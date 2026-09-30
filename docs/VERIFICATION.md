@@ -1,26 +1,27 @@
 # Verification record
 
-Verified September 29, 2026 on macOS 26.6.2, Apple Silicon. The Nix package uses pinned Apple Swift 6.3.3 and macOS SDK 26.4, with Lix 2.93.2. The Moonlander was intentionally unplugged, as authorized by the user.
+Verified September 30, 2026 on macOS 26.6.2, Apple Silicon. The Nix package uses pinned Apple Swift 6.3.3 and macOS SDK 26.4, with Lix 2.93.2. Checks use synthetic layout fixtures and simulated keyboard events; no Moonlander was connected.
 
 **Software checks**
 
 | Check | Result |
 | --- | --- |
-| Core checks | 13 tests, 1,459 assertions passed |
-| Core checks plus explicit live Oryx query | 14 tests, 1,461 assertions passed; retrieved `exampleLayout/exampleRevision` with three 72-key layers |
-| Nix-packaged release AppKit integration | 35 checks passed, including menu bar visibility and Settings lifecycle |
+| Core checks | 13 tests, 1,460 assertions passed |
+| Core checks plus explicit live Oryx query | 14 tests, 1,462 assertions passed using a supplied exact-revision URL; no preset account or layout in the runner |
+| Nix-packaged release AppKit integration | 38 checks passed, including demo setup, menu bar visibility, and Settings lifecycle |
 | Visual inspection | All three keyboard layers and Keyboard, Appearance, and Layout & connection settings pages rendered and reviewed; long legends fitted without dropping layer numbers |
 | Standalone packaging | The Nix DMG mounted read-only; both the mounted app and a copy installed outside the store passed signature verification and bundled-layout diagnostics |
 | macOS deployment target | `26.0` in both Info.plist and the Mach-O build-version load command |
 | Local signature | `codesign --verify --strict` passed; ad-hoc signature |
-| App bundle size | 2,203,611 bytes (about 2.10 MiB) |
-| Nix runtime closure | 2,257,120 bytes; only the launcher and app bundle, with no compiler or SDK dependency |
-| Disk image size | 2,600,960 bytes (about 2.48 MiB), uncompressed |
+| App bundle size | 2,166,957 bytes (about 2.07 MiB) |
+| Nix runtime closure | 2,220,448 bytes; only the launcher and app bundle, with no compiler or SDK dependency |
+| Disk image size | 2,564,096 bytes (about 2.45 MiB), uncompressed |
 | Release workflow | `actionlint` passed; native Intel build and actual GitHub release publication remain untested |
 
 The integration checks use the actual AppDelegate, AppModel, repository, preferences, settings views, status item, and NSPanel. Keyboard events, revision-fetch responses, and launch/reopen notifications are simulated. They cover:
 
 - Starting unplugged, offline preview, layer-0 hiding, showing secondary layers, and switching labels.
+- Starting with no preset Oryx URL, keeping the synthetic demo separate from real keyboard associations, and initializing the preview from the first identified layout.
 - Preserving the foreground application and current key window, keeping the panel nonactivating, and setting click-through and Spaces/fullscreen collection behavior.
 - Cancelling a pending appearance on return to base, disconnect cleanup, explicit preview, and drag-positioning mode.
 - No redraw after 1,000 duplicate hidden-layer reports, no network calls for the bundled revision, and stopping/resuming the USB monitor.
@@ -38,11 +39,11 @@ The measurement launched the actual Nix-packaged release app with `--background`
 
 | Metric | Observed |
 | --- | --- |
-| Measurement duration | 30.003 seconds |
-| App CPU time during the interval | 0.000065 seconds |
-| Average CPU utilization | 0.000218% of one core |
-| Resident memory at end | 47.0 MiB |
-| Context switches during interval | 15 |
+| Measurement duration | 30.010 seconds |
+| App CPU time during the interval | 0.000059 seconds |
+| Average CPU utilization | 0.000197% of one core |
+| Resident memory at end | 46.5 MiB |
+| Context switches during interval | 16 |
 | Mach messages received during interval | 2 |
 | Threads at end | 3 |
 
@@ -54,9 +55,9 @@ A source audit found no repeating timers, polling loops, background URL sessions
 
 Actual USB pairing and layer reports, permission behavior with the Moonlander attached, real firmware flashing, and coexistence with Oryx live training/Keymapp remain untested because the keyboard is unplugged. Source review and packet fixtures support those paths; they do not substitute for a physical-device test.
 
-Sleep/wake observers, display fallback, fullscreen/Spaces configuration, and launch at login are implemented using native APIs. The tests check the panel configuration and simulated lifecycle rather than rebooting the Mac, changing its display hardware, or changing the user's login-item authorization. Verify those integrations on the user's normal desktop setup when connecting the keyboard.
+Sleep/wake observers, display fallback, fullscreen/Spaces configuration, and launch at login are implemented using native APIs. The tests check panel configuration and simulated lifecycle. Rebooting, display changes, login-item authorization, and firmware updates still require hardware acceptance on a representative desktop setup.
 
-Developer ID signing/notarization was not performed: the Mac has no valid Developer ID signing identity. The Nix-generated app is ad-hoc signed and runs locally. Distribution commands are documented in [Nix packaging](NIX.md#developer-id-signing-and-notarization).
+Developer ID signing and notarization are not configured. The Nix-generated app is ad-hoc signed and runs locally. Distribution commands are documented in [Nix packaging](NIX.md#developer-id-signing-and-notarization).
 
 **Nix packaging and reproducibility**
 
@@ -76,7 +77,7 @@ nix flake check --no-build --all-systems
 nix run .#smoke-test
 nix run .#previews
 nix run .#benchmark -- --seconds 30
-nix develop --command swift run KeyfinderCoreChecks --live-oryx
+nix develop --command swift run KeyfinderCoreChecks --live-oryx '<exact-revision Moonlander URL>'
 nix build .#dmg --out-link result-dmg
 nix build . .#keyfinder.appBundle --rebuild --no-link --option sandbox true
 nix build .#dmg --rebuild --no-link --option sandbox true
@@ -86,11 +87,11 @@ codesign --verify --strict result/Applications/Keyfinder.app
 Generated reports and images are in `artifacts/`. The verified release executable SHA-256 is:
 
 ```text
-e3def7a0ad2acc64bead4ca2a53ce38dfa2c44cbf66b260c9c38fb91e1a286b9
+71f68831c414bac096fff82fa236d1feb0d69ec79a2a7aab1f436e9f30b56e44
 ```
 
 The verified DMG SHA-256 is:
 
 ```text
-5f3f2b729986f5dbfa4422f3b66ee8cf3a89be069179fdaf6db4102f1286cd6c
+209b39f830df7153615af533bf5d303230cb82da02512d2e4a486b7df06e26b8
 ```
