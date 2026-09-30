@@ -13,7 +13,7 @@ A quiet macOS menu bar app that shows what every key does, right when you need i
 ![Built with Swift](https://img.shields.io/badge/Swift-native-151a21?style=flat-square&logo=swift)
 ![Packaged with Nix](https://img.shields.io/badge/Nix-flake%20%2B%20nix--darwin-151a21?style=flat-square&logo=nixos)
 
-[Get started](#get-started) · [Performance](#small-app-quiet-idle) · [nix-darwin](#add-it-to-nix-darwin) · [How it works](docs/USAGE.md)
+[Download latest release](../../releases/latest) · [Get started](#get-started) · [Performance](#small-app-quiet-idle) · [nix-darwin](#add-it-to-nix-darwin) · [How it works](docs/USAGE.md)
 
 <img src="docs/assets/keyboard.png" width="1100" alt="Keyfinder’s Moonlander preview showing function keys, symbols, a number pad, and angled thumb clusters on layer 1">
 
@@ -49,14 +49,20 @@ There is no periodic Oryx refresh. A layout download happens only for an uncache
 
 ## Get started
 
-Requires **macOS 26 or later** and [Nix with flakes enabled](https://nix.dev/concepts/flakes). From a checkout:
+Requires **macOS 26 or later**. [Download the latest release →](../../releases/latest)
+
+Choose `Keyfinder-macOS-arm64.zip` for Apple Silicon or `Keyfinder-macOS-x86_64.zip` for Intel. Unzip, move **Keyfinder.app** to Applications, and open it. Settings opens on first launch with an offline preview; connect your Moonlander when ready. Nix is not required to run the downloaded app.
+
+The downloads are signed ad hoc and are not notarized. If macOS blocks opening the app, use **System Settings → Privacy & Security → Open Anyway** after attempting to open it. If macOS requests Input Monitoring access, grant it to Keyfinder and retry the connection from Settings.
+
+Prefer a reproducible source build? With [Nix and flakes enabled](https://nix.dev/concepts/flakes), run from a checkout:
 
 ```sh
 nix build
 open result/Applications/Keyfinder.app
 ```
 
-Or launch directly with `nix run`. Settings opens on first launch with an offline preview; connect your Moonlander when ready.
+Or launch directly with `nix run`.
 
 The flake pins Nixpkgs, the Apple Swift toolchain, and the macOS SDK. You do not need to install Xcode or Command Line Tools separately. The first build downloads the toolchain; later builds reuse the Nix store. Packages are defined for Apple Silicon and Intel Macs.
 
@@ -68,7 +74,7 @@ nix run . -- --diagnostics          # Check the packaged app and bundled layout
 nix run . -- --background           # Start without opening Settings
 ```
 
-The app is signed ad hoc for local use. Public distribution with Developer ID signing and notarization is a separate step. If macOS requests Input Monitoring access, grant it to Keyfinder and retry the connection from Settings.
+Pushing a Git tag builds and checks both architectures, then publishes the app ZIPs to GitHub Releases. [Release workflow and signing details →](docs/NIX.md#tag-releases)
 
 ## Add it to nix-darwin
 
