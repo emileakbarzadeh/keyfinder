@@ -50,14 +50,15 @@ jobs:
       - name: Build the reproducible disk image
         run: nix build .#dmg --no-update-lock-file --print-build-logs --out-link result-dmg
 
-      - name: Verify the standalone app and stage the download
+      - name: Stage and verify the standalone download
         run: |
-          hdiutil attach -readonly -nobrowse -mountpoint "$RUNNER_TEMP/keyfinder-release" result-dmg
+          # hdiutil needs the .dmg suffix to recognize the HFS+/ISO hybrid image.
+          cp -L result-dmg "$KEYFINDER_ASSET"
+          hdiutil attach -readonly -nobrowse -mountpoint "$RUNNER_TEMP/keyfinder-release" "$KEYFINDER_ASSET"
           trap 'hdiutil detach "$RUNNER_TEMP/keyfinder-release"' EXIT
           codesign --verify --deep --strict "$RUNNER_TEMP/keyfinder-release/Keyfinder.app"
           python3 scripts/check-zapp-bundle.py "$RUNNER_TEMP/keyfinder-release/Keyfinder.app"
           "$RUNNER_TEMP/keyfinder-release/Keyfinder.app/Contents/MacOS/Keyfinder" --diagnostics
-          cp -L result-dmg "$KEYFINDER_ASSET"
 
       - name: Upload the checked disk image
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

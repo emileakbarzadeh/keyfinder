@@ -20,7 +20,7 @@ let
   };
   appBundle = pkgs.stdenvNoCC.mkDerivation {
     pname = "keyfinder-app";
-    version = "1.0.0";
+    version = "1.0.1";
     outputs = [
       "out"
       "testHelpers"
