@@ -35,7 +35,7 @@ final class OverlayPanel: NSPanel {
         }
     }
 
-    func show(_ layer: PresentedLayer?, message: String? = nil, preferences: Preferences, preview: Bool = false, arranging: Bool = false, unverified: Bool = false, keyboard: KeyboardModel? = nil) {
+    func show(_ layer: PresentedLayer?, message: String? = nil, preferences: Preferences, preview: Bool = false, arranging: Bool = false, unverified: Bool = false, keyboard: KeyboardModel? = nil, immediate: Bool = false) {
         generation += 1
         pendingAppearance?.cancel(); pendingAppearance = nil
         self.preferences = preferences
@@ -54,7 +54,7 @@ final class OverlayPanel: NSPanel {
         panel.alphaValue = preferences.opacity
         position()
         if panel.isVisible { return }
-        if preferences.appearanceDelay == 0 || preview || arranging {
+        if preferences.appearanceDelay == 0 || preview || arranging || immediate {
             present()
         } else {
             let expected = generation

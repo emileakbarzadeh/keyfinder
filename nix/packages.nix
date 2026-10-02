@@ -2,6 +2,7 @@
 let
   inherit (pkgs) lib;
   toolchain = pkgs.callPackage ./toolchain.nix { };
+  zapp = pkgs.callPackage ./zapp.nix { };
   # Nixpkgs' processed SDK removes SwiftShims for its own Swift package.
   # Apple's compiler needs those headers, so use the same pinned SDK source.
   sdk = pkgs.apple-sdk_26.src;
@@ -12,17 +13,23 @@ let
     fileset = lib.fileset.unions [
       ../Package.swift
       ../Sources
-      ../Tests
+      (lib.fileset.fileFilter (file: !(file.hasExt "pyc" || file.hasExt "pyo")) ../Tests)
       ../Packaging
+      ../scripts/check-zapp-bundle.py
     ];
   };
   appBundle = pkgs.stdenvNoCC.mkDerivation {
     pname = "keyfinder-app";
     version = "1.0.0";
+    outputs = [
+      "out"
+      "testHelpers"
+    ];
     src = source;
     nativeBuildInputs = [
       toolchain
       pkgs.rcodesign
+      pkgs.python3
     ];
     buildInputs = [ sdk ];
     strictDeps = true;
@@ -54,16 +61,23 @@ let
     checkPhase = ''
       runHook preCheck
       .build/release/KeyfinderCoreChecks
+      python3 -B -m unittest discover -s Tests/Packaging
       runHook postCheck
     '';
     installPhase = ''
       runHook preInstall
+      install -Dm755 .build/release/KeyfinderZappFixture "$testHelpers/bin/KeyfinderZappFixture"
       app="$out/Applications/Keyfinder.app"
       install -Dm755 .build/release/Keyfinder "$app/Contents/MacOS/Keyfinder"
       ${toolchain}/usr/bin/strip -S "$app/Contents/MacOS/Keyfinder"
       install -Dm644 Packaging/Info.plist "$app/Contents/Info.plist"
       install -Dm644 Packaging/Keyfinder.icns "$app/Contents/Resources/Keyfinder.icns"
       cp -R .build/release/Keyfinder_KeyfinderCore.bundle "$app/Contents/Resources/"
+      install -Dm755 ${zapp}/bin/zapp "$app/Contents/Helpers/zapp"
+      mkdir -p "$app/Contents/Resources/Licenses/Zapp"
+      install -m644 ${zapp.src}/LICENSE* "$app/Contents/Resources/Licenses/Zapp/"
+      python3 scripts/check-zapp-bundle.py "$app" --otool ${toolchain}/usr/bin/otool
+      rcodesign sign --timestamp-url none --signing-time 2001-01-01T00:00:00Z "$app/Contents/Helpers/zapp"
       rcodesign sign --timestamp-url none --signing-time 2001-01-01T00:00:00Z "$app"
       runHook postInstall
     '';
@@ -72,6 +86,7 @@ let
     disallowedReferences = [
       toolchain
       sdk
+      zapp
     ];
     meta = {
       description = "A native ZSA keyboard layer overlay for macOS 26+";
@@ -111,6 +126,12 @@ let
       exec ${lib.getExe keyfinder} --render-previews "''${1:-$PWD/artifacts/previews}"
     '';
   };
+  firmwareChecks = pkgs.writeShellApplication {
+    name = "keyfinder-firmware-checks";
+    text = ''
+      exec ${lib.getExe keyfinder} --check-firmware "''${1:-$PWD/artifacts/firmware-checks/report.json}" ${appBundle.testHelpers}/bin/KeyfinderZappFixture
+    '';
+  };
   benchmark = pkgs.writeShellApplication {
     name = "keyfinder-benchmark";
     text = ''
@@ -128,6 +149,7 @@ in
   apps = {
     default = app keyfinder;
     smoke-test = app smoke;
+    firmware-checks = app firmwareChecks;
     previews = app previews;
     demo = app demo;
     benchmark = app benchmark;
@@ -138,6 +160,7 @@ in
       pkgs.nixfmt
       pkgs.python3
       pkgs.rcodesign
+      zapp
     ];
     buildInputs = [ sdk ];
     SDKROOT = sdkPath;

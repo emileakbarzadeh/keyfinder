@@ -113,6 +113,7 @@ import KeyfinderCore
                 monitor.emit(.disconnected)
 
                 checks.merge(try await checkKeyboardModels(directory: temporary)) { _, new in new }
+                checks.merge(try await checkHotKeys(directory: temporary)) { _, new in new }
                 let progress: [String: Any] = ["passed": false, "checks": checks, "error": "GUI checks did not finish.", "hardware_tested": false]
                 if let data = try? JSONSerialization.data(withJSONObject: progress, options: [.prettyPrinted, .sortedKeys]) {
                     try? data.write(to: reportURL, options: .atomic)
@@ -129,7 +130,7 @@ import KeyfinderCore
                     for page in SettingsPage.allCases {
                         window.contentView = NSHostingView(rootView: SettingsView(model: appModel, initialPage: page))
                         try await Task.sleep(for: .milliseconds(150))
-                        let name = page == .keyboard ? "settings" : page == .appearance ? "settings-appearance" : "settings-connection"
+                        let name = page == .keyboard ? "settings" : page == .appearance ? "settings-appearance" : page == .firmware ? "settings-firmware" : "settings-connection"
                         if let view = window.contentView { try capture(view, to: reportURL.deletingLastPathComponent().appendingPathComponent("\(name)\(suffix).png")) }
                     }
                 }
@@ -245,7 +246,43 @@ import KeyfinderCore
         }
     }
 
-    private static func keyboardFixture(_ keyboard: KeyboardModel) throws -> LayoutSnapshot {
+    static func runShortcutChecks(reportURL: URL) {
+        try? FileManager.default.createDirectory(at: reportURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? Data(#"{"passed":false,"error":"Shortcut checks did not finish."}"#.utf8).write(to: reportURL, options: .atomic)
+        Task { @MainActor in
+            let temporary = FileManager.default.temporaryDirectory.appendingPathComponent("Keyfinder-shortcuts-\(UUID().uuidString)")
+            var checks: [String: Bool] = [:]
+            var failure: String?
+            do { checks = try await checkHotKeys(directory: temporary) }
+            catch { failure = error.localizedDescription }
+            smokePassed = failure == nil && !checks.isEmpty && checks.values.allSatisfy { $0 }
+            let report: [String: Any] = ["passed": smokePassed, "checks": checks, "error": failure as Any? ?? NSNull(), "physical_hotkey_tested": false]
+            if let data = try? JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys]) { try? data.write(to: reportURL, options: .atomic) }
+            try? FileManager.default.removeItem(at: temporary)
+            print("Shortcut checks \(smokePassed ? "passed" : "FAILED") (\(checks.count) checks). See \(reportURL.path)")
+            NSApp.stop(nil)
+            if let event = NSEvent.otherEvent(with: .applicationDefined, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: 0, context: nil, subtype: 0, data1: 0, data2: 0) { NSApp.postEvent(event, atStart: true) }
+        }
+    }
+
+    static func runFirmwareChecks(reportURL: URL, fixture: URL) {
+        try? FileManager.default.createDirectory(at: reportURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? Data(#"{"passed":false,"error":"Firmware checks did not finish.","hardware_tested":false}"#.utf8).write(to: reportURL, options: .atomic)
+        Task { @MainActor in
+            var checks: [String: Bool] = [:]
+            var failure: String?
+            do { checks = try await checkFirmware(directory: reportURL.deletingLastPathComponent(), fixture: fixture) }
+            catch { failure = error.localizedDescription }
+            smokePassed = failure == nil && !checks.isEmpty && checks.values.allSatisfy { $0 }
+            let report: [String: Any] = ["passed": smokePassed, "checks": checks, "error": failure as Any? ?? NSNull(), "hardware_tested": false, "real_zapp_tested": false]
+            if let data = try? JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys]) { try? data.write(to: reportURL, options: .atomic) }
+            print("Firmware checks \(smokePassed ? "passed" : "FAILED") (\(checks.count) checks). See \(reportURL.path)")
+            NSApp.stop(nil)
+            if let event = NSEvent.otherEvent(with: .applicationDefined, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: 0, context: nil, subtype: 0, data1: 0, data2: 0) { NSApp.postEvent(event, atStart: true) }
+        }
+    }
+
+    static func keyboardFixture(_ keyboard: KeyboardModel) throws -> LayoutSnapshot {
         let keys: [JSONValue] = (0..<keyboard.keyCount).map { index in
             .object(["tap": .object(["code": .string("KC_A")]), "customLabel": .string("\(index)")])
         }

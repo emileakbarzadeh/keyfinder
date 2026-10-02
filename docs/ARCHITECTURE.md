@@ -9,6 +9,8 @@ Keyfinder is a native macOS 26+ overlay for one connected ZSA Moonlander, Voyage
 | `KeyfinderCore` | Validate layouts and device identities, decode Oryx reports, resolve key labels, and cache revision snapshots. |
 | `HIDMonitor` | Identify supported ZSA models by USB product ID or product name, pair through the raw HID interface, and deliver device events on the main run loop. |
 | `AppModel` | Coordinate connection state, exact-revision retrieval, preview selection, and persisted preferences. |
+| `HoldHotKey` / `ShortcutRecorder` | Register a configurable shortcut’s press/release callbacks and record replacements within Settings. |
+| `FirmwareFlasher` / `ZappRunner` | Stage reviewed firmware, stream a Zapp subprocess, and report its exit status. |
 | `OverlayController` / `KeyboardView` | Present a nonactivating, click-through AppKit panel using the active model’s geometry. |
 | `AppDelegate` / `SettingsView` | Manage the optional menu bar icon, Settings, explicit reopening, and login behavior. |
 | Nix expressions | Pin the compiler and SDK; build, check, sign, and package the app; configure the nix-darwin LaunchAgent. |
@@ -50,15 +52,29 @@ The resolver compares action semantics, including tap/hold gestures and macros. 
 
 ## Window lifecycle and performance
 
-`Theme.swift` defines two neutral palettes in sRGB: charcoal `#111315` for dark mode and parchment `#F4F3EE` for light mode, with bright orange `#F77F00` and red `#D62828` accents. Orange controls use charcoal text. Optional Oryx colors tint the keycaps while labels retain the theme’s text colors. The overlay draws its keys and headings on a transparent background, without a panel shadow, status badge, or footer. Unverified revisions are identified in the subtitle.
+`Theme.swift` defines two neutral palettes in sRGB: charcoal `#111315` for dark mode and parchment `#F4F3EE` for light mode, with bright orange `#F77F00` and red `#D62828` accents. Orange controls use charcoal text. Optional Oryx colors tint the keycaps while labels retain the theme’s text colors. The overlay has a transparent background with a soft glow around the keys and headings. Its glow is charcoal in Dark mode and parchment in Light mode. A single AppKit shadow follows the combined key silhouette; floating text is drawn over its own glow. These effects use the existing content, size, and appearance redraws. There is no panel shadow, status badge, or footer. Unverified revisions are identified in the subtitle.
 
 The persisted appearance preference defaults to System, which inherits macOS appearance. Light and Dark override window appearance explicitly. Dynamic colors update SwiftUI, and `viewDidChangeEffectiveAppearance` invalidates the static AppKit keyboard when needed. Theme changes use native appearance propagation; they add no observers, polling, or timers. Older preferences retain their existing values and default to System.
 
 The overlay cannot become the key or main window and passes clicks through. Dragging is enabled only during an explicit arrangement preview. It joins desktop Spaces and fullscreen environments; a missing display falls back to the main display.
 
+`HoldHotKey` uses Carbon’s `RegisterEventHotKey` with exclusive registration and both pressed/released events. Conflicts are reported in Settings. Registration IDs reject stale callbacks, repeated presses do no UI work, and interrupted holds are suppressed until release. The recorder temporarily unregisters the shortcut and reads only its own responder events. Neither component installs an event tap or global event monitor, so no additional privacy permission is needed. The unused Input Monitoring usage declaration and settings link have been removed.
+
+The hold state is separate from the keyboard’s reported layer and from explicit previews. A held shortcut shows the installed layer 0 immediately; release restores the latest live layer or explicit preview. Offline holds use the saved preview. Pause, disconnect, sleep, inactive sessions, rebinding, and shutdown clear the hold. Sleep and inactive-session states are tracked separately so waking while another session is active cannot resume monitoring prematurely.
+
 The menu bar icon is optional. Opening the app while the icon is hidden reveals Settings, including restoring a closed or minimized window. Login-item and `--background` launches remain quiet. Pause stops USB monitoring; Quit terminates the app without a keep-alive loop.
 
 There are no polling loops, repeating timers, scheduled Oryx refreshes, or continuous render callbacks. Labels are prepared when a layout changes. Duplicate layer reports do no UI work, and hidden overlays do no drawing. Connection deadlines and optional appearance delays are cancellable one-shot tasks. Diagnostic timing lives only in explicitly invoked verification tools.
+
+## Firmware flashing
+
+`FirmwareSettingsView` accepts a single `.bin` through SwiftUI file drops or `NSOpenPanel`. `FirmwareImage` opens regular files without following links, bounds reads to 64 MiB, and writes a read-only copy in a private temporary directory. Its SHA-256 identifies the reviewed bytes. Selection generations discard stale reads; dropping a file never launches Zapp.
+
+An explicit **Flash keyboard** action runs the bundled `Contents/Helpers/zapp` with separate `flash` and file-path arguments. There is no shell, privileged helper, or runtime Nix invocation. Source builds may resolve Zapp from absolute directories in `PATH`; packaged apps require their bundled executable. A dedicated worker drains stdout and stderr through one pipe, waits for EOF and process termination, then reports success only for a normal zero exit. Standard input is closed: Keyfinder does not guess answers to terminal prompts. Connect one target keyboard and use its physical reset button as requested by Zapp.
+
+The model clears the old connection, releases HID, unregisters the shortcut, and hides previews while Zapp runs. Late USB callbacks, connection retry, wake, and duplicate flash actions cannot reopen monitoring. Completion restores the existing pause and session policy. `ProcessInfo` activity prevents idle sleep and automatic termination during the operation; the app delegate rejects ordinary Quit until completion. Closing Settings is allowed. The code never terminates the flasher as a cancellation mechanism.
+
+Output is bounded to 32 KiB with backpressure on delivery to the main thread. ANSI color codes are removed for plain-text presentation. There are no periodic subprocess checks, fabricated percentage indicators, or persistent firmware jobs. Temporary file copies are removed on replacement, clearing, and normal shutdown. Zapp remains responsible for firmware/device validation and writing; format checks do not prove compatibility.
 
 ## Validation and future work
 

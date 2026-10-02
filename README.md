@@ -31,7 +31,9 @@ A macOS app that shows your keyboard’s active layer and the action assigned to
 
 ## Features
 
-The overlay appears on layers 1 and above and hides on layer 0. Keys float on a transparent background. It updates as you switch layers, passes clicks through, and leaves keyboard focus in your current app.
+The overlay appears on layers 1 and above and hides on layer 0. Keys float over your screen with a soft glow for contrast. It updates as you switch layers, passes clicks through, and leaves keyboard focus in your current app.
+
+Hold **F18** to see your typing layer, then release it to return to the normal overlay. Change or disable the shortcut in **Settings → Appearance → Typing layer shortcut**. It works with the menu bar icon hidden and needs no Accessibility or Input Monitoring access.
 
 | Feature | Behavior |
 | :--- | :--- |
@@ -39,6 +41,7 @@ The overlay appears on layers 1 and above and hides on layer 0. Keys float on a 
 | Keyboard layout | Model-specific layouts for Moonlander (72 keys), Voyager (52), and ErgoDox EZ (76), with tap/hold actions and Oryx key colors. |
 | Appearance | Light, Dark, or System theme. Adjustable size, opacity, display, position, and delay. Optional menu bar icon. |
 | Offline use | Cached layouts and a bundled three-layer demo. Layer previews in Settings. |
+| Firmware | Drop a `.bin` in Settings, review it, and flash with ZSA’s Zapp. |
 | Privacy | Physical keypress reports are discarded. No typing history is recorded. |
 
 Keyfinder detects the keyboard model from USB. Oryx URLs and imported snapshots select the model for previews. It monitors one connected keyboard at a time. Voyager and ErgoDox EZ support has been checked with fixtures and rendered previews; their physical key positions and live connections remain unverified.
@@ -53,9 +56,15 @@ Keyfinder waits for USB and system events, with no polling, repeating timers, or
 | :---: | :---: | :---: |
 | **~0.0002%** of one core | **~46 MiB** | **1.9 MiB** |
 
-Measured for the earlier Moonlander-only build over 30 seconds on Apple Silicon running macOS 26.6.2, using the Nix release build with Settings closed and no keyboard connected. The measurements exclude startup and do not cover a connected keyboard or visible overlay. The app size excludes build tools. [Verification details](docs/VERIFICATION.md).
+Measured for the earlier Moonlander-only build over 30 seconds on Apple Silicon running macOS 26.6.2, using the Nix release build with Settings closed and no keyboard connected. These are historical measurements: they exclude startup, a connected keyboard, a visible overlay, and the newly bundled Zapp executable. [Verification details](docs/VERIFICATION.md).
 
-Oryx is contacted only to fetch an uncached installed revision or refresh a preview. Starting without a keyboard makes no Oryx request.
+Oryx is contacted only to fetch an uncached installed revision or refresh a preview. Starting without a keyboard makes no Oryx request. Zapp runs only during an explicit flash and exits afterward.
+
+## Flash firmware
+
+Open **Settings → Firmware** and drop the `.bin` file downloaded from Oryx, or click **Choose file…**. Check that it is for your keyboard, then click **Flash keyboard**. Dropping a file alone does not start flashing.
+
+Connect only the keyboard you want to update. Follow Zapp’s instructions in the output panel and keep the keyboard plugged in until it finishes. Keyfinder pauses the overlay during the flash and reconnects afterward. The packaged app includes [Zapp](https://github.com/zsa/zapp); no terminal, Nix installation, or extra macOS privacy permission is needed. [Firmware guide](docs/USAGE.md#flash-firmware).
 
 ## Installation
 
@@ -65,7 +74,7 @@ Use `Keyfinder-macOS-arm64.dmg` for Apple Silicon or `Keyfinder-macOS-x86_64.dmg
 
 On first launch, Settings shows the bundled demo. Connect your keyboard to load its installed layout, or paste an Oryx URL in **Layout & connection**.
 
-The downloads are signed ad hoc and are not notarized. If macOS blocks opening the app, use **System Settings → Privacy & Security → Open Anyway** after attempting to open it. If macOS requests Input Monitoring access, grant it to Keyfinder and retry the connection from Settings.
+The downloads are signed ad hoc and are not notarized. If macOS blocks opening the app, use **System Settings → Privacy & Security → Open Anyway** after attempting to open it.
 
 ### Build with Nix
 
@@ -124,7 +133,7 @@ When the module handles startup, leave the app’s “Launch Keyfinder at login�
 
 <picture>
   <source media="(prefers-color-scheme: light)" srcset="docs/assets/appearance-light.png">
-  <img src="docs/assets/appearance.png" width="800" alt="Keyfinder’s Appearance settings with System, Light, and Dark themes, overlay controls, and launch at login">
+  <img src="docs/assets/appearance.png" width="800" alt="Keyfinder’s Appearance settings with color themes, launch options, and a configurable hold-to-show typing layer shortcut">
 </picture>
 
 Choose **Appearance → Color theme → System, Light, or Dark**. System follows macOS automatically. The theme applies to Settings and the overlay.
@@ -140,6 +149,7 @@ Transparent keys can inherit different actions from stacked layers. Stock Oryx r
 ```sh
 nix flake check                    # Build + offline core checks + module checks
 nix run .#smoke-test               # AppKit integration checks; opens temporary windows
+nix run .#firmware-checks          # File handling and flashing lifecycle with a fake backend
 nix run .#previews                 # Render all bundled layers into artifacts/previews
 nix run .#demo                     # Generate the animated demo in artifacts/demo.gif
 nix run .#benchmark -- --seconds 30 # Measure the packaged app from a separate process

@@ -3,7 +3,7 @@ import Carbon
 import SwiftUI
 import KeyfinderCore
 
-@MainActor final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelegate {
+@MainActor final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelegate, NSMenuItemValidation {
     private var model: AppModel?
     private(set) var statusItem: NSStatusItem?
     private(set) var settingsWindow: NSWindow?
@@ -24,7 +24,7 @@ import KeyfinderCore
                 let overlay = OverlayController(geometry: geometry)
                 let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
                     .appendingPathComponent("Keyfinder/Layouts", isDirectory: true)
-                model = AppModel(geometry: geometry, monitor: HIDMonitor(), repository: LayoutRepository(directory: directory), defaults: defaults, overlay: overlay)
+                model = AppModel(geometry: geometry, monitor: HIDMonitor(), repository: LayoutRepository(directory: directory), defaults: defaults, overlay: overlay, hotKey: HoldHotKey())
             }
             guard let model else { return }
             configureApplicationMenu()
@@ -91,6 +91,12 @@ import KeyfinderCore
     }
 
     func menuWillOpen(_ menu: NSMenu) { updateMenu() }
+    func validateMenuItem(_ item: NSMenuItem) -> Bool {
+        if item.action == #selector(togglePause) || item.action == #selector(retryConnection) {
+            return model?.isFlashingFirmware != true
+        }
+        return true
+    }
     private func updateMenu() {
         guard let model else { return }
         statusLine.title = model.status
@@ -120,6 +126,16 @@ import KeyfinderCore
     }
     func windowWillClose(_ notification: Notification) { model?.endOverlayPreview() }
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool { openSettings(); return true }
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard model?.isFlashingFirmware == true else { return .terminateNow }
+        openSettings()
+        let alert = NSAlert()
+        alert.messageText = "Firmware flashing is still running"
+        alert.informativeText = "Wait for Zapp to finish before quitting Keyfinder. Interrupting it can leave your keyboard in bootloader mode."
+        alert.addButton(withTitle: "Keep flashing")
+        if let window = settingsWindow, window.attachedSheet == nil { alert.beginSheetModal(for: window) }
+        return .terminateCancel
+    }
     func applicationWillTerminate(_ notification: Notification) {
         settingsWindow?.close()
         model?.onStatusChange = nil; model?.onMenuBarVisibilityChange = nil

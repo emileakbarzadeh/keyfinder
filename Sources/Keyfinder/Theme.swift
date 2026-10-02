@@ -57,6 +57,7 @@ enum Theme {
     static let text = adaptive(\.text)
     static let mutedText = adaptive(\.mutedText)
     static let border = adaptive(\.border)
+    static let accentText = adaptive(\.accentText)
 
     static func tinted(_ base: NSColor, with accent: NSColor, amount: CGFloat) -> NSColor {
         guard let base = base.usingColorSpace(.sRGB), let accent = accent.usingColorSpace(.sRGB) else { return base }

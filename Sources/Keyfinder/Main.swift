@@ -21,13 +21,25 @@ import KeyfinderCore
                 if !Diagnostics.smokePassed { exit(1) }
                 return
             }
+            if arguments.first == "--check-shortcuts", arguments.count == 2 {
+                Diagnostics.runShortcutChecks(reportURL: URL(fileURLWithPath: arguments[1]))
+                app.run()
+                if !Diagnostics.smokePassed { exit(1) }
+                return
+            }
+            if arguments.first == "--check-firmware", arguments.count == 3 {
+                Diagnostics.runFirmwareChecks(reportURL: URL(fileURLWithPath: arguments[1]), fixture: URL(fileURLWithPath: arguments[2]))
+                app.run()
+                if !Diagnostics.smokePassed { exit(1) }
+                return
+            }
             if arguments.first == "--diagnostics" {
                 let snapshot = try LayoutSnapshot.bundled()
                 print("Keyfinder 1.0 · macOS 26+\nBundled layout: \(snapshot.layoutID)/\(snapshot.revisionID)\nLayers: \(snapshot.layers.count) · keys: \(try KeyboardGeometry.load().keys.count)\nPeriodic jobs: none\nUSB: ZSA raw HID, non-exclusive, callbacks only")
                 return
             }
             if !arguments.isEmpty && arguments != ["--background"] {
-                fputs("Usage: Keyfinder [--background | --diagnostics | --render-previews directory | --render-icon path | --smoke-test report.json]\n", stderr)
+                fputs("Usage: Keyfinder [--background | --diagnostics | --render-previews directory | --render-icon path | --smoke-test report.json | --check-shortcuts report.json | --check-firmware report.json fixture-executable]\n", stderr)
                 exit(2)
             }
         } catch {

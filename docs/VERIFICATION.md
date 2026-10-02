@@ -109,3 +109,29 @@ All three models render offscreen in Light and Dark. Voyager and ErgoDox EZ use 
 **Transparent overlay — October 1, 2026**
 
 The overlay presentation change compiled with the pinned toolchain. Twelve offscreen renders cover all three keyboard models and both themes. Image alpha checks confirmed transparent gaps and empty badge/footer areas while keycaps remain opaque. README previews and animations were refreshed, and the local app bundle passed signature verification. Desktop activation remains subject to the restricted-session limitation above.
+
+**Overlay glow — October 1, 2026**
+
+The glow change compiled with the pinned toolchain. Twelve offscreen renders confirmed the added glow in both themes, with transparent corners and center gaps and no status badge. The headings and keys were visually checked over bright and dark backgrounds containing text. The README assets were refreshed, and the local app bundle passed signature verification. The glow uses existing redraws; no animation or timer was added. Live desktop activation remains unverified in this restricted session.
+
+**Configurable hold shortcut — October 1, 2026**
+
+The shortcut implementation compiled with the pinned toolchain, and the 16 core tests (4,721 assertions) passed. The dedicated shortcut command passed 33 checks covering preference migration, recording and cancellation, saved bindings, repeat handling, immediate layer-0 display, release, installed-versus-preview layouts, disconnect, pause, sleep/session transitions, shutdown, and simulated registration errors.
+
+Native `RegisterEventHotKey` registration returned `eventInternalErr` (-9868) in this restricted session, which also reports unavailable macOS application services. The command retains `passed: false`; native conflict and press/release callback checks require an ordinary desktop session. The full smoke suite reached its window-activation timeout. A physical F18 press and release remains unverified here.
+
+The Settings controls were rendered in both themes. The Input Monitoring usage declaration, settings link, and permission-grant guidance were removed. Source inspection found no event taps, global event monitors, input-access request calls, or Accessibility/Screen Recording permission requests. The shortcut uses registered hotkey events; its recorder uses its own window’s responder events. These checks do not establish hardware USB access behavior, which still needs physical-device verification.
+
+The local app bundle passed signature verification with no entitlements or privacy usage declarations. Its binary imports `RegisterEventHotKey`; checks found no imports of `CGEventTapCreate`, `AXIsProcessTrustedWithOptions`, `IOHIDRequestAccess`, or `CGRequestScreenCaptureAccess`.
+
+**Firmware flashing — October 1, 2026**
+
+The app compiles with the pinned Swift compiler and SDK. The 16 core tests (4,721 assertions) pass. All 32 firmware checks pass using a simulated keyboard and a separate subprocess fixture with no USB code. They cover file validation and copying, checksums, stale selections, explicit start, USB handoff, pause/session restoration, launch failures, exit status and signals, literal paths, bounded output, and short prompts arriving before the process exits. The prompt test caught buffering in Foundation’s pipe reader; the production reader now uses a single POSIX read per chunk.
+
+The Firmware tab was rendered and inspected in Light and Dark. The earlier shortcut suite still passes its 33 model/recorder checks; native registration continues to fail with -9868 in this restricted session. The app adds no privacy usage declarations or permission-request APIs for file selection or flashing.
+
+Eight packaging guard tests pass using mocked tool output. They check that the helper is copied into the app, retains its license, advertises the `flash` subcommand, and has no external or Nix-store dynamic dependencies. The production guard invokes only `zapp --help`; the test fixture is excluded from the app and DMG.
+
+The cached Nixpkgs 26.05 source was hashed and matched `flake.lock`. The app and Zapp derivations evaluate for `aarch64-darwin` and `x86_64-darwin` using that source and a workspace-local evaluation store. Zapp 1.0.2 is backported from the newer Nixpkgs package with its published source and Cargo hashes; 26.05 itself does not contain Zapp.
+
+The real Zapp executable and a new app/DMG containing it could not be built or exercised here: network resolution and the system Nix daemon are unavailable. The CLI’s physical reset flow, firmware compatibility checks, recovery, and USB permission behavior still need hardware acceptance. No keyboard was flashed. Earlier signed-bundle and size measurements describe builds before Zapp was bundled.

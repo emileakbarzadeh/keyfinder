@@ -54,7 +54,8 @@ jobs:
         run: |
           hdiutil attach -readonly -nobrowse -mountpoint "$RUNNER_TEMP/keyfinder-release" result-dmg
           trap 'hdiutil detach "$RUNNER_TEMP/keyfinder-release"' EXIT
-          codesign --verify --strict "$RUNNER_TEMP/keyfinder-release/Keyfinder.app"
+          codesign --verify --deep --strict "$RUNNER_TEMP/keyfinder-release/Keyfinder.app"
+          python3 scripts/check-zapp-bundle.py "$RUNNER_TEMP/keyfinder-release/Keyfinder.app"
           "$RUNNER_TEMP/keyfinder-release/Keyfinder.app/Contents/MacOS/Keyfinder" --diagnostics
           cp -L result-dmg "$KEYFINDER_ASSET"
 

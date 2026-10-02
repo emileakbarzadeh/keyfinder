@@ -6,7 +6,7 @@ Nix is the primary build and packaging interface. The repository has no standalo
 
 `flake.lock` pins Nixpkgs and nix-darwin to their 26.05 Darwin branches. This keeps both `aarch64-darwin` and `x86_64-darwin` evaluable; later Nixpkgs releases have dropped Intel Mac support. Linux has no app package yet.
 
-Nixpkgs' Swift compiler is currently too old for the app. [toolchain.nix](../nix/toolchain.nix) fetches Apple's Command Line Tools 26.5 package by SHA-256 and extracts it into the store without running its installer. It contains Swift 6.3.3, a pinned upstream binary rather than a compiler rebuilt from source. Only this named dependency is allowed by the flake's unfree-package predicate; Apple's toolchain terms still apply.
+Nixpkgs' Swift compiler is currently too old for the app. [toolchain.nix](../nix/toolchain.nix) fetches Apple's Command Line Tools 26.5 package by SHA-256 and extracts it into the store without running its installer. It contains Swift 6.3.3, a pinned upstream binary rather than a compiler rebuilt from source. The unfree-package predicate allows only this toolchain and Zapp. Apple's toolchain terms and Zapp's upstream license apply to those dependencies.
 
 The macOS 26.4 SDK comes from the locked Nixpkgs `apple-sdk_26.src` output. Using that original SDK preserves the SwiftShims headers that Nixpkgs' processed SDK removes for its own older Swift package. Both compiler and SDK are downloaded into the store; neither is read from the build host's Xcode installation.
 
@@ -16,12 +16,13 @@ The macOS 26.4 SDK comes from the locked Nixpkgs `apple-sdk_26.src` output. Usin
 | `packages.<system>.dmg` | Mountable disk image containing the standalone `.app` and an Applications shortcut |
 | `apps.<system>.default` | Launch the app; arguments pass through unchanged |
 | `apps.<system>.smoke-test` | AppKit checks with temporary windows and simulated USB events |
+| `apps.<system>.firmware-checks` | File validation, subprocess output, and flash lifecycle checks using a separate fake backend |
 | `apps.<system>.previews` | Render the bundled keyboard layers |
 | `apps.<system>.demo` | Generate the README GIF from the app's synthetic previews |
 | `apps.<system>.benchmark` | External CPU and memory measurement of the packaged app |
 | `checks.<system>.package` | Build the release app and run offline core checks |
 | `checks.<system>.module` | Evaluate actual nix-darwin configurations and check their generated service settings |
-| `devShells.<system>.default` | Pinned Swift/SDK, Python, signing tool, and Nix formatter |
+| `devShells.<system>.default` | Pinned Swift/SDK, Zapp, Python, signing tool, and Nix formatter |
 | `formatter.<system>` | `nixfmt` |
 | `darwinModules.default` / `keyfinder` | nix-darwin service module |
 | `overlays.default` | Expose the flake's pinned package as `pkgs.keyfinder` |
@@ -29,6 +30,10 @@ The macOS 26.4 SDK comes from the locked Nixpkgs `apple-sdk_26.src` output. Usin
 There are no third-party Swift package dependencies. The source filter excludes docs, screenshots, Git state, and build artifacts, so documentation changes do not rebuild the app.
 
 The signed app bundle and compiled launcher use separate store outputs. The default package links to the complete bundle under `Applications/Keyfinder.app`, preserving its signature. Use the disk image, or `cp -RL result/Applications/Keyfinder.app destination`, when copying a standalone app out of the store.
+
+[zapp.nix](../nix/zapp.nix) backports the Nixpkgs Zapp 1.0.2 package, with its fixed source and Cargo dependency hashes, to Keyfinder’s 26.05 Darwin toolchain. That branch does not include Zapp; keeping it allows Intel builds. The app derivation copies the executable into `Contents/Helpers/zapp`, includes its upstream license files, and signs the helper before signing the app. The module and disk image carry this same bundle; enabling `programs.zapp` separately is unnecessary.
+
+[check-zapp-bundle.py](../scripts/check-zapp-bundle.py) rejects non-system dynamic libraries and Nix store paths in the helper’s Mach-O load commands. It also runs only `zapp --help` to check that the flash command is present. The build fails if the upstream package gains dependencies that would prevent it running outside the store. Zapp’s license is MIT with the Commons Clause, as recorded by Nixpkgs; the bundled upstream files retain its terms.
 
 ## Building and verifying
 
@@ -38,6 +43,7 @@ nix flake check
 nix flake check --no-build --all-systems
 nix run . -- --diagnostics
 nix run .#smoke-test
+nix run .#firmware-checks
 nix run .#previews
 nix run .#demo
 nix run .#benchmark -- --seconds 30 --output artifacts/idle-performance.json
@@ -65,7 +71,11 @@ swift run KeyfinderCoreChecks
 
 Core checks use synthetic fixtures and do not contact Oryx. To check the service explicitly, run `swift run KeyfinderCoreChecks --live-oryx '<exact-revision Oryx URL>'` with a URL you choose; `latest` URLs are rejected so the expected identity is unambiguous. No account or layout URL is built into the test runner.
 
-To update pinned dependencies, run `nix flake update`, review `flake.lock`, then rebuild and rerun checks. Updating the compiler also requires reviewing the URL and content hash in `nix/toolchain.nix`.
+Run `nix run . -- --check-shortcuts artifacts/shortcut-checks/report.json` for the hold-shortcut checks without the full desktop focus suite. It checks preferences, the Settings recorder, held-layer behavior, and native hotkey registration and callbacks. Synthetic events stay within the test process; it does not inject system keystrokes or request input-monitoring permissions. The full smoke suite also includes these checks.
+
+The firmware checks use `KeyfinderZappFixture`, built into a separate `testHelpers` output and excluded from the `.app` and DMG. It has no USB code. The checks exercise staging, lifecycle transitions, and actual subprocess pipes, then render the Firmware tab in both themes. They never invoke the real Zapp or flash hardware. For a SwiftPM build, run `swift run Keyfinder --check-firmware artifacts/firmware-checks/report.json .build/debug/KeyfinderZappFixture` after `swift build`.
+
+To update pinned dependencies, run `nix flake update`, review `flake.lock`, then rebuild and rerun checks. Updating the compiler also requires reviewing the URL and content hash in `nix/toolchain.nix`. Update Zapp’s version, source hash, and Cargo hash together in `nix/zapp.nix`, then verify its standalone dependencies and CLI contract before releasing.
 
 ## Reproducibility
 
@@ -91,7 +101,7 @@ services.keyfinder = {
 };
 ```
 
-Keep the app's own launch-at-login toggle disabled while the module manages startup. If you previously enabled that toggle, turn it off before enabling the module's agent. macOS privacy permissions remain user-controlled; installation does not grant Input Monitoring access.
+Keep the app's own launch-at-login toggle disabled while the module manages startup. If you previously enabled that toggle, turn it off before enabling the module's agent. The hold shortcut needs no Accessibility or Input Monitoring access, and installation changes no macOS privacy settings.
 
 The default package uses Keyfinder's locked Nixpkgs even if the containing system uses another revision. There is no need to set `keyfinder.inputs.nixpkgs.follows`; doing so transfers responsibility for SDK and tool compatibility to the containing configuration.
 
@@ -99,7 +109,7 @@ Removing or disabling the module removes its declarative installation and Launch
 
 ## Tag releases
 
-The [release workflow](../.github/workflows/release.yml) runs whenever a Git tag is pushed. It builds natively on macOS 26 for Apple Silicon and Intel, runs `nix flake check`, and builds the `dmg` output with the checked-in lock file and Nix sandbox enabled. It mounts each image read-only, verifies the app's signature, runs its offline diagnostics outside the Nix store, and detaches the image.
+The [release workflow](../.github/workflows/release.yml) runs whenever a Git tag is pushed. It builds natively on macOS 26 for Apple Silicon and Intel, runs `nix flake check`, and builds the `dmg` output with the checked-in lock file and Nix sandbox enabled. It mounts each image read-only, verifies the app and nested helper signatures, checks Zapp’s standalone dependencies and help output, runs the app’s offline diagnostics outside the Nix store, and detaches the image.
 
 Once both builds pass, it publishes a GitHub release with generated release notes and two downloads:
 
@@ -128,6 +138,8 @@ Nix outputs are immutable. Copy the built app out of the store before applying y
 ```sh
 cp -RL result/Applications/Keyfinder.app ./Keyfinder.app
 chmod -R u+w ./Keyfinder.app
+codesign --force --options runtime --timestamp \
+  --sign 'Developer ID Application: Your Name (TEAMID)' ./Keyfinder.app/Contents/Helpers/zapp
 codesign --force --options runtime --timestamp \
   --sign 'Developer ID Application: Your Name (TEAMID)' ./Keyfinder.app
 mkdir -p ./release-content

@@ -23,7 +23,12 @@
         system:
         import nixpkgs {
           inherit system;
-          config.allowUnfreePredicate = package: nixpkgs.lib.getName package == "apple-command-line-tools";
+          config.allowUnfreePredicate =
+            package:
+            builtins.elem (nixpkgs.lib.getName package) [
+              "apple-command-line-tools"
+              "zapp"
+            ];
         };
       packagesFor = system: import ./nix/packages.nix { pkgs = pkgsFor system; };
     in

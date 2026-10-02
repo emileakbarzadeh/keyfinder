@@ -3,7 +3,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 import KeyfinderCore
 
-enum SettingsPage: String, CaseIterable { case keyboard = "Keyboard", appearance = "Appearance", connection = "Layout & connection" }
+enum SettingsPage: String, CaseIterable { case keyboard = "Keyboard", appearance = "Appearance", connection = "Layout & connection", firmware = "Firmware" }
 
 struct SettingsView: View {
     @ObservedObject var model: AppModel
@@ -27,17 +27,18 @@ struct SettingsView: View {
                         Circle().fill(model.connected && !model.isPaused ? Color(nsColor: Theme.orange) : Color(nsColor: Theme.mutedText)).frame(width: 7, height: 7)
                         Text(model.status).font(.callout)
                     }
-                    Text("Hidden on layer 0").font(.caption).foregroundStyle(Color(nsColor: Theme.mutedText))
+                    Text(model.isHoldingTypingLayer ? "Showing layer 0" : "Hidden on layer 0").font(.caption).foregroundStyle(Color(nsColor: Theme.mutedText))
                 }
             }.padding(.horizontal, 25).padding(.vertical, 19)
             Divider()
             PalettePicker(label: "Settings", options: SettingsPage.allCases.map { ($0, $0.rawValue) }, selection: $page)
-                .frame(maxWidth: 520).padding(.horizontal, 28).padding(.top, 16)
+                .frame(maxWidth: 680).padding(.horizontal, 28).padding(.top, 16)
             Group {
                 switch page {
                 case .keyboard: keyboardTab
                 case .appearance: appearanceTab
                 case .connection: connectionTab
+                case .firmware: FirmwareSettingsView(model: model, firmware: model.firmware)
                 }
             }.padding(18).frame(maxWidth: .infinity, maxHeight: .infinity)
         }
@@ -102,6 +103,25 @@ struct SettingsView: View {
                     switchRow("Launch Keyfinder at login", isOn: Binding(get: { model.launchAtLogin }, set: model.setLaunchAtLogin))
                     Button("Quit Keyfinder") { NSApp.terminate(nil) }
                 }
+                SettingsSection("Typing layer shortcut") {
+                    switchRow("Hold to show layer 0", isOn: preference(\.typingLayerHotKeyEnabled))
+                    HStack {
+                        Text("Shortcut"); Spacer()
+                        ShortcutRecorder(shortcut: model.preferences.typingLayerHotKey, enabled: model.preferences.typingLayerHotKeyEnabled,
+                                         onRecord: { shortcut in
+                                             var value = model.preferences; value.typingLayerHotKey = shortcut; model.setPreferences(value)
+                                         }, onRecordingChanged: model.setHotKeyRecording)
+                            .frame(width: 210, height: 30)
+                    }
+                    Text("Click the shortcut to change it. Hold it to see layer 0; release to return to the current layer. Esc cancels recording.")
+                        .font(.caption).foregroundStyle(Color(nsColor: Theme.mutedText))
+                    Text("For a dedicated key, assign F18 in Oryx. This shortcut needs no Accessibility or Input Monitoring access.")
+                        .font(.caption).foregroundStyle(Color(nsColor: Theme.mutedText))
+                    if let error = model.hotKeyError {
+                        Text(error).font(.callout).foregroundStyle(Color(nsColor: Theme.accentText))
+                        Button("Retry shortcut") { model.updateHotKeyRegistration() }
+                    }
+                }
                 SettingsSection("Overlay") {
                     HStack { Text("Width").frame(width: 65, alignment: .leading); Slider(value: preference(\.width), in: 620...1500, step: 10); Text("\(Int(model.preferences.width)) pt").monospacedDigit().frame(width: 65) }
                     HStack { Text("Opacity").frame(width: 65, alignment: .leading); Slider(value: preference(\.opacity), in: 0.4...1); Text("\(Int(model.preferences.opacity * 100))%").monospacedDigit().frame(width: 65) }
@@ -140,6 +160,8 @@ struct SettingsView: View {
                         var value = Preferences()
                         value.layoutURL = model.preferences.layoutURL
                         value.showMenuBarIcon = model.preferences.showMenuBarIcon
+                        value.typingLayerHotKeyEnabled = model.preferences.typingLayerHotKeyEnabled
+                        value.typingLayerHotKey = model.preferences.typingLayerHotKey
                         model.setPreferences(value)
                     }
                 }
@@ -160,11 +182,8 @@ struct SettingsView: View {
                     Text("Supported keyboards: " + KeyboardModel.allCases.map(\.displayName).joined(separator: ", "))
                         .font(.caption).foregroundStyle(Color(nsColor: Theme.mutedText))
                     HStack {
-                        Button("Retry connection") { model.retryConnection() }.disabled(model.isPaused)
-                        Button(model.isPaused ? "Resume monitoring" : "Pause monitoring") { model.togglePause() }
-                        Button("Input Monitoring settings…") {
-                            NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent")!)
-                        }
+                        Button("Retry connection") { model.retryConnection() }.disabled(model.isPaused || model.isFlashingFirmware)
+                        Button(model.isPaused ? "Resume monitoring" : "Pause monitoring") { model.togglePause() }.disabled(model.isFlashingFirmware)
                     }
                     if model.connected && !model.identityVerified {
                         Button("Use preview revision for this keyboard (unverified)") { model.usePreviewForUnidentifiedKeyboard() }
@@ -287,7 +306,7 @@ private struct PalettePicker<Value: Hashable>: View {
     }
 }
 
-private struct SettingsSection<Content: View>: View {
+struct SettingsSection<Content: View>: View {
     let title: String
     let content: Content
 

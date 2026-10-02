@@ -57,17 +57,32 @@ final class KeyboardView: NSView {
         guard rendersContent else { return }
         drawCount += 1
         let colors = Theme.palette(for: effectiveAppearance)
-        drawText(presentedLayer?.name ?? "Keyfinder", in: NSRect(x: 25, y: 18, width: bounds.width * 0.56, height: 25), size: 20, weight: .semibold, color: colors.text, align: .left)
+        if presentedLayer != nil { drawKeyGlow(color: colors.background) }
+        drawText(presentedLayer?.name ?? "Keyfinder", in: NSRect(x: 25, y: 18, width: bounds.width * 0.56, height: 25), size: 20, weight: .semibold, color: colors.text, align: .left, glow: colors.background)
         let subtitle = (presentedLayer.map { "\($0.layoutTitle)  /  \($0.keyboardName)" } ?? geometry.keyboard.displayName) + (unverified ? "  ·  Unverified revision" : "")
-        drawText(subtitle, in: NSRect(x: 26, y: 43, width: bounds.width * 0.58, height: 15), size: 10, color: colors.mutedText, align: .left)
+        drawText(subtitle, in: NSRect(x: 26, y: 43, width: bounds.width * 0.58, height: 15), size: 10, color: colors.mutedText, align: .left, glow: colors.background)
         if let layer = presentedLayer {
             for key in geometry.keys {
                 guard layer.keys.indices.contains(key.index) else { continue }
                 draw(key, presentation: layer.keys[key.index], colors: colors)
             }
         } else {
-            drawText(message ?? "Waiting for the keyboard", in: NSRect(x: 35, y: 92, width: bounds.width - 70, height: max(60, bounds.height - 115)), size: 14, color: colors.text)
+            drawText(message ?? "Waiting for the keyboard", in: NSRect(x: 35, y: 92, width: bounds.width - 70, height: max(60, bounds.height - 115)), size: 14, color: colors.text, glow: colors.background)
         }
+    }
+
+    private func drawKeyGlow(color: NSColor) {
+        // Blur the whole silhouette once instead of creating a shadow per key.
+        let silhouette = NSBezierPath()
+        for key in geometry.keys { silhouette.append(path(for: key)) }
+        NSGraphicsContext.saveGraphicsState()
+        let shadow = NSShadow()
+        shadow.shadowColor = color.withAlphaComponent(0.95)
+        shadow.shadowBlurRadius = min(18, max(10, unit * 0.3))
+        shadow.shadowOffset = .zero
+        shadow.set()
+        color.setFill(); silhouette.fill()
+        NSGraphicsContext.restoreGraphicsState()
     }
 
     private func draw(_ key: KeyGeometry, presentation: PresentedKey, colors: Theme.Palette) {
@@ -98,7 +113,7 @@ final class KeyboardView: NSView {
         NSGraphicsContext.restoreGraphicsState()
     }
 
-    private func drawText(_ text: String, in rect: NSRect, size: CGFloat, weight: NSFont.Weight = .regular, color: NSColor, align: NSTextAlignment = .center, shrink: Bool = false) {
+    private func drawText(_ text: String, in rect: NSRect, size: CGFloat, weight: NSFont.Weight = .regular, color: NSColor, align: NSTextAlignment = .center, shrink: Bool = false, glow: NSColor? = nil) {
         let paragraph = NSMutableParagraphStyle(); paragraph.alignment = align; paragraph.lineBreakMode = .byTruncatingTail
         var fontSize = size
         if shrink {
@@ -113,7 +128,20 @@ final class KeyboardView: NSView {
             (text as NSString).draw(at: NSPoint(x: x, y: rect.midY - actual.height / 2), withAttributes: attributes)
             return
         }
-        (text as NSString).draw(in: rect, withAttributes: [.font: NSFont.systemFont(ofSize: fontSize, weight: weight), .foregroundColor: color, .paragraphStyle: paragraph])
+        let attributes: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: fontSize, weight: weight), .foregroundColor: color, .paragraphStyle: paragraph]
+        if let glow {
+            let shadow = NSShadow()
+            shadow.shadowColor = glow.withAlphaComponent(0.95)
+            shadow.shadowBlurRadius = 7
+            shadow.shadowOffset = .zero
+            var backdrop = attributes
+            backdrop[.foregroundColor] = glow
+            backdrop[.shadow] = shadow
+            backdrop[.strokeColor] = glow
+            backdrop[.strokeWidth] = -24
+            (text as NSString).draw(in: rect, withAttributes: backdrop)
+        }
+        (text as NSString).draw(in: rect, withAttributes: attributes)
     }
 
     override func mouseDown(with event: NSEvent) {

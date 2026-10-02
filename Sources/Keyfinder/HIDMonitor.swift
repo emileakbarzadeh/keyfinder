@@ -175,7 +175,7 @@ enum KeyboardEvent {
 
     private func reportOpenError(_ result: IOReturn) {
         let detail = result == kIOReturnNotPermitted
-            ? "macOS denied USB access. Enable Keyfinder in System Settings → Privacy & Security → Input Monitoring if it is listed, then retry."
+            ? "macOS denied access to the keyboard’s USB interface. Reconnect the keyboard and try Retry connection."
             : "Could not open the keyboard’s USB interface (\(result)). Check its connection and try Retry connection."
         onEvent?(.problem(detail, blocking: true))
     }
