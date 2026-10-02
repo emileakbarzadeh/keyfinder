@@ -73,6 +73,13 @@ extension Diagnostics {
         model.flashFirmware(); try await firmwareWait { runner.starts == 1 }
         checks["flash_releases_hid_and_hides_overlay"] = firmware.isFlashing && model.isFlashingFirmware && !keyboard.running && !overlay.panel.isVisible
         checks["reviewed_file_and_keyboard_name_retained"] = runner.file == firmware.image?.url && firmware.targetName == "Moonlander"
+        for mode in [AppAppearance.dark, .light] {
+            var prefs = model.preferences; prefs.appearance = mode; model.setPreferences(prefs)
+            let view = NSHostingView(rootView: SettingsView(model: model, initialPage: .firmware))
+            view.frame = NSRect(x: 0, y: 0, width: 1000, height: 900)
+            view.appearance = mode.appKit
+            try capture(view, to: directory.appendingPathComponent("firmware-waiting\(mode == .light ? "-light" : "").png"))
+        }
         model.flashFirmware(); firmware.select([empty]); firmware.clear(); model.togglePause(); model.retryConnection(); model.showOverlayPreview()
         keyboard.emit(.connected(ConnectedKeyboard(name: "Voyager", serial: "keyfinder-demo/v1", productID: 0x1977)))
         checks["flash_blocks_duplicate_start_file_changes_and_usb_callbacks"] = runner.starts == 1 && firmware.image?.name == source.lastPathComponent

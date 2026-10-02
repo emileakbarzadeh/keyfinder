@@ -1,0 +1,158 @@
+--- a/zapp/src/main.rs
++++ b/zapp/src/main.rs
+@@ -189,12 +189,20 @@
+             .unwrap(),
+     );
+     spinner.set_message(msg.to_string());
+-    spinner.enable_steady_tick(std::time::Duration::from_millis(100));
++    if spinner.is_hidden() {
++        // indicatif hides its output on pipes and TERM=dumb. GUI callers still
++        // need to see why Zapp is waiting, especially before a physical reset.
++        println!("{msg}");
++    } else {
++        spinner.enable_steady_tick(std::time::Duration::from_millis(100));
++    }
+     spinner
+ }
+ 
+ fn wait_and_flash(fw: &Firmware) -> Result<()> {
+-    let spinner = new_spinner("Waiting for keyboard in bootloader mode...");
++    let spinner = new_spinner(
++        "Waiting for keyboard in bootloader mode. Press your keyboard's reset button...",
++    );
+ 
+     let device = device::wait_for_bootloader(None, |status| match status {
+         WatchStatus::Waiting => {}
+@@ -212,32 +220,111 @@
+             .progress_chars("█▓░"),
+     );
+ 
+-    flash::flash_device(&device, fw, &|progress| match progress {
++    flash::flash_device(&device, fw, &|progress| report_flash_progress(&pb, progress))
++        .context("Flash failed")?;
++
++    Ok(())
++}
++
++fn report_flash_progress(pb: &ProgressBar, progress: FlashProgress) {
++    let (position, message) = match progress {
+         FlashProgress::Erasing {
+             bytes_erased,
+             total_bytes,
+-        } => {
+-            let pct = (bytes_erased * 100) / total_bytes;
+-            pb.set_position(pct as u64);
+-            pb.set_message("Erasing...");
+-        }
++        } => ((bytes_erased * 100 / total_bytes) as u64, "Erasing..."),
+         FlashProgress::Writing {
+             bytes_written,
+             total_bytes,
+-        } => {
+-            let pct = (bytes_written * 100) / total_bytes;
+-            pb.set_position(pct as u64);
+-            pb.set_message("Writing...");
+-        }
+-        FlashProgress::Resetting => {
+-            pb.set_position(100);
+-            pb.set_message("Resetting...");
+-        }
++        } => ((bytes_written * 100 / total_bytes) as u64, "Writing..."),
++        FlashProgress::Resetting => (100, "Resetting..."),
+         FlashProgress::Complete => {
++            if pb.is_hidden() {
++                println!("Done!");
++            }
+             pb.finish_with_message("Done!");
+-        }
+-    })
+-    .context("Flash failed")?;
+-
+-    Ok(())
+-}
++            return;
++        }
++    };
++
++    // Emit at most one line per percentage/phase change in a captured log.
++    if pb.is_hidden() && (pb.position() != position || pb.message() != message) {
++        println!("{message} {position}%");
++    }
++    pb.set_position(position);
++    pb.set_message(message);
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    #[test]
++    fn progress_is_visible_through_a_pipe() {
++        let output = std::process::Command::new(std::env::current_exe().unwrap())
++            .args(["--exact", "tests::progress_output_fixture", "--nocapture", "--quiet"])
++            .env("ZAPP_PROGRESS_OUTPUT_FIXTURE", "1")
++            .env("TERM", "dumb")
++            .env("NO_COLOR", "1")
++            .output()
++            .unwrap();
++        assert!(output.status.success(), "{output:?}");
++        let stdout = String::from_utf8(output.stdout).unwrap();
++        let messages: Vec<_> = stdout
++            .lines()
++            .filter(|line| {
++                line.starts_with("Waiting for")
++                    || line.starts_with("Erasing...")
++                    || line.starts_with("Writing...")
++                    || line.starts_with("Resetting...")
++                    || *line == "Done!"
++            })
++            .collect();
++        assert_eq!(
++            messages,
++            [
++                "Waiting for keyboard in bootloader mode. Press your keyboard's reset button...",
++                "Erasing... 1%",
++                "Erasing... 100%",
++                "Writing... 1%",
++                "Writing... 100%",
++                "Resetting... 100%",
++                "Done!",
++            ]
++        );
++        assert!(!stdout.contains('\x1b'));
++    }
++
++    #[test]
++    fn progress_output_fixture() {
++        // Rendering only: never enumerate USB devices or flash firmware.
++        if std::env::var_os("ZAPP_PROGRESS_OUTPUT_FIXTURE").is_none() {
++            return;
++        }
++        let spinner = new_spinner(
++            "Waiting for keyboard in bootloader mode. Press your keyboard's reset button...",
++        );
++        assert!(spinner.is_hidden());
++        spinner.finish_and_clear();
++        let pb = ProgressBar::new(100);
++        for bytes in [10, 11, 1000] {
++            report_flash_progress(
++                &pb,
++                FlashProgress::Erasing {
++                    bytes_erased: bytes,
++                    total_bytes: 1000,
++                },
++            );
++        }
++        for bytes in [10, 11, 1000] {
++            report_flash_progress(
++                &pb,
++                FlashProgress::Writing {
++                    bytes_written: bytes,
++                    total_bytes: 1000,
++                },
++            );
++        }
++        report_flash_progress(&pb, FlashProgress::Resetting);
++        report_flash_progress(&pb, FlashProgress::Complete);
++    }
++}

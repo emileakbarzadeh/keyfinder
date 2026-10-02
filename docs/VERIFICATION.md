@@ -135,3 +135,27 @@ Eight packaging guard tests pass using mocked tool output. They check that the h
 The cached Nixpkgs 26.05 source was hashed and matched `flake.lock`. The app and Zapp derivations evaluate for `aarch64-darwin` and `x86_64-darwin` using that source and a workspace-local evaluation store. Zapp 1.0.2 is backported from the newer Nixpkgs package with its published source and Cargo hashes; 26.05 itself does not contain Zapp.
 
 The real Zapp executable and a new app/DMG containing it could not be built or exercised here: network resolution and the system Nix daemon are unavailable. The CLI’s physical reset flow, firmware compatibility checks, recovery, and USB permission behavior still need hardware acceptance. No keyboard was flashed. Earlier signed-bundle and size measurements describe builds before Zapp was bundled.
+
+**Standalone Zapp packaging fix — October 1, 2026**
+
+A subsequent Nix build produced Zapp 1.0.2 and exposed its dependency on Nix’s Darwin `libiconv-113`. The app install phase now changes that load command to `/usr/lib/libiconv.2.dylib`. Both libraries declare compatibility/current version 7, and the pinned macOS SDK supplies that ABI. The modified helper is signed before its help command runs.
+
+The dependency checker also excludes `otool`’s first output line, which names the inspected executable. A bundle built in the Nix store must not fail merely because that header contains its own store path. Actual library and runpath references remain checked. All ten packaging guard tests pass, including regressions for Nix `libiconv` rejection, system `libiconv` acceptance, and the output-path header.
+
+Using the real Nix-built Zapp binary and cached Swift build, a standalone app was assembled in the workspace with the same install, rewrite, and signing steps. Its helper passes the production dependency/help check, contains no reference to Nix’s `libiconv` output, and the complete app passes `codesign --verify --deep --strict`. This includes running the checker on a path containing `/nix/store/` to exercise the header case. The full Nix build could not be rerun in this session because daemon socket access is denied. No hardware was flashed.
+
+**Firmware waiting/progress visibility — October 1, 2026**
+
+Zapp 1.0.2 prints “Firmware loaded” before waiting for bootloader mode, but its `indicatif` spinner and progress bar are hidden when Keyfinder captures a pipe. The bundled helper now emits the physical-reset instruction and actual phase/percentage updates as plain text in that case. Duplicate percentages within a phase are suppressed, and hidden spinners no longer start a steady-tick thread. The Firmware tab also explains when to press reset.
+
+The patched Zapp, app, and DMG build successfully with the pinned Nix toolchain on Apple Silicon. All 24 Rust tests pass, including a subprocess regression that captures the actual progress renderers with `TERM=dumb` and verifies waiting, erasing, writing, resetting, completion, and duplicate suppression. That regression performs no USB enumeration or firmware writes. The app build passes 16 core tests (4,721 assertions) and 10 packaging tests; the packaged app passes all 32 firmware checks. Waiting-state screenshots were rendered and inspected in both themes.
+
+`nix flake check` passes for `aarch64-darwin`. The DMG was mounted read-only, its app copied outside the store, and the copied app passed strict deep signature verification, the Zapp dependency/help guard, and all 106 smoke checks. The image was detached afterward. Reports, build logs, and screenshots are under `artifacts/zapp-progress/`; the rebuilt app and DMG are available through `result-firmware-progress` and `result-firmware-progress-dmg`. No physical keyboard was flashed; hardware acceptance and Intel execution remain unverified.
+
+**Keyboard preview tooltip crash — October 1, 2026**
+
+The crash at 21:24 and an earlier crash at 14:29 both report `EXC_BAD_ACCESS` in `objc_opt_respondsToSelector`, called by `NSToolTipManager displayToolTip:` from its hover timer. `KeyboardView` passed temporary `NSString` bridges to `addToolTip`, whose owner argument is not retained by AppKit. The view now implements `NSViewToolTipOwner` itself and retains text by tooltip tag. Changing preview mode also rebuilds the regions, so disabling previews clears pending tooltip text.
+
+A diagnostic subclass records weak references to the actual owners passed to AppKit, then checks them after an autorelease pool drains. Before the fix, owners were released and seven of the nine new tooltip checks failed. After the fix, all nine pass, along with all earlier checks: 115 smoke checks total in the pinned Swift development build. The checks cover owner lifetime, full tooltip text, layer/model changes, resize, disabling and enabling previews, stale callbacks, clearing a layer, and view release. Reports and a reduced crash summary are under `artifacts/tooltip-crash/`.
+
+The release app and DMG also build successfully. The app build passes 16 core tests (4,721 assertions) and 10 packaging tests, and `nix flake check` passes for `aarch64-darwin`. The DMG was mounted read-only and its app copied to `artifacts/tooltip-crash/standalone/Keyfinder.app`; that copy passes strict deep signature verification, the Zapp dependency/help guard, and all 115 smoke checks. The image was detached after verification. The rebuilt DMG is available through `result-tooltip-fix-dmg`.

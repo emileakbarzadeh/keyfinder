@@ -24,10 +24,11 @@ class ZappBundleChecks(unittest.TestCase):
         self.licenses.mkdir(parents=True)
         (self.licenses / "LICENSE").write_text("Test fixture")
 
-    def run_check(self, library="/usr/lib/libSystem.B.dylib", commands="", help_text="Commands:\n  flash  Flash firmware\n"):
+    def run_check(self, library="/usr/lib/libSystem.B.dylib", commands="", help_text="Commands:\n  flash  Flash firmware\n", displayed_path=None):
+        displayed_path = displayed_path or str(self.helper)
         with patch.object(checker.subprocess, "check_output", side_effect=[
-            f"zapp:\n\t{library} (compatibility version 1.0.0, current version 1.0.0)\n",
-            commands, help_text,
+            f"{displayed_path}:\n\t{library} (compatibility version 1.0.0, current version 1.0.0)\n",
+            f"{displayed_path}:\n{commands}", help_text,
         ]) as command, patch("builtins.print"):
             checker.check(self.app, "otool")
             return command.call_args_list
@@ -39,7 +40,13 @@ class ZappBundleChecks(unittest.TestCase):
 
     def test_store_dependency_is_rejected(self):
         with self.assertRaisesRegex(RuntimeError, "non-system runtime dependency"):
-            self.run_check(library="/nix/store/example-libusb/lib/libusb.dylib")
+            self.run_check(library="/nix/store/example-libiconv-113/lib/libiconv.2.dylib")
+
+    def test_system_iconv_is_allowed(self):
+        self.run_check(library="/usr/lib/libiconv.2.dylib")
+
+    def test_store_path_in_otool_header_is_not_a_dependency(self):
+        self.run_check(displayed_path="/nix/store/example-keyfinder-app/Applications/Keyfinder.app/Contents/Helpers/zapp")
 
     def test_unresolved_rpath_library_is_rejected(self):
         with self.assertRaisesRegex(RuntimeError, "non-system runtime dependency"):

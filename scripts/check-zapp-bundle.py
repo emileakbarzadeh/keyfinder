@@ -20,7 +20,10 @@ def check(app: Path, otool: str) -> None:
         if not library.startswith(("/usr/lib/", "/System/Library/")):
             raise RuntimeError(f"Zapp has a non-system runtime dependency: {library}")
     commands = subprocess.check_output([otool, "-l", str(helper)], text=True)
-    if "/nix/store/" in commands:
+    # otool prints the inspected file's path as its first line. In a Nix build
+    # that header contains $out; only the load commands describe dependencies.
+    load_commands = "\n".join(commands.splitlines()[1:])
+    if "/nix/store/" in load_commands:
         raise RuntimeError("Zapp retains a Nix store path in its Mach-O load commands")
     help_text = subprocess.check_output(
         [str(helper), "--help"],

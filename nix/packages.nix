@@ -74,10 +74,17 @@ let
       install -Dm644 Packaging/Keyfinder.icns "$app/Contents/Resources/Keyfinder.icns"
       cp -R .build/release/Keyfinder_KeyfinderCore.bundle "$app/Contents/Resources/"
       install -Dm755 ${zapp}/bin/zapp "$app/Contents/Helpers/zapp"
+      # Darwin's libiconv package has the system library's ABI (version 7).
+      # Use the macOS copy so the downloaded app needs no Nix runtime closure.
+      ${toolchain}/usr/bin/install_name_tool \
+        -change ${lib.getLib pkgs.libiconv}/lib/libiconv.2.dylib /usr/lib/libiconv.2.dylib \
+        "$app/Contents/Helpers/zapp"
+      # Changing a load command invalidates the helper's existing signature.
+      # Sign before the standalone check executes its --help command.
+      rcodesign sign --timestamp-url none --signing-time 2001-01-01T00:00:00Z "$app/Contents/Helpers/zapp"
       mkdir -p "$app/Contents/Resources/Licenses/Zapp"
       install -m644 ${zapp.src}/LICENSE* "$app/Contents/Resources/Licenses/Zapp/"
       python3 scripts/check-zapp-bundle.py "$app" --otool ${toolchain}/usr/bin/otool
-      rcodesign sign --timestamp-url none --signing-time 2001-01-01T00:00:00Z "$app/Contents/Helpers/zapp"
       rcodesign sign --timestamp-url none --signing-time 2001-01-01T00:00:00Z "$app"
       runHook postInstall
     '';
@@ -87,6 +94,7 @@ let
       toolchain
       sdk
       zapp
+      (lib.getLib pkgs.libiconv)
     ];
     meta = {
       description = "A native ZSA keyboard layer overlay for macOS 26+";

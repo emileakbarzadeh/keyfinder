@@ -58,6 +58,8 @@ The persisted appearance preference defaults to System, which inherits macOS app
 
 The overlay cannot become the key or main window and passes clicks through. Dragging is enabled only during an explicit arrangement preview. It joins desktop Spaces and fullscreen environments; a missing display falls back to the main display.
 
+Keyboard preview tooltips use the `KeyboardView` itself as their `NSViewToolTipOwner`, with text retained by tooltip tag. AppKit does not retain the owner passed to `addToolTip`, so temporary bridged strings cannot serve as owners. Layer, geometry, size, and preview-mode changes rebuild the regions and clear stale text; callbacks for removed regions return an empty string.
+
 `HoldHotKey` uses Carbon’s `RegisterEventHotKey` with exclusive registration and both pressed/released events. Conflicts are reported in Settings. Registration IDs reject stale callbacks, repeated presses do no UI work, and interrupted holds are suppressed until release. The recorder temporarily unregisters the shortcut and reads only its own responder events. Neither component installs an event tap or global event monitor, so no additional privacy permission is needed. The unused Input Monitoring usage declaration and settings link have been removed.
 
 The hold state is separate from the keyboard’s reported layer and from explicit previews. A held shortcut shows the installed layer 0 immediately; release restores the latest live layer or explicit preview. Offline holds use the saved preview. Pause, disconnect, sleep, inactive sessions, rebinding, and shutdown clear the hold. Sleep and inactive-session states are tracked separately so waking while another session is active cannot resume monitoring prematurely.
@@ -75,6 +77,8 @@ An explicit **Flash keyboard** action runs the bundled `Contents/Helpers/zapp` w
 The model clears the old connection, releases HID, unregisters the shortcut, and hides previews while Zapp runs. Late USB callbacks, connection retry, wake, and duplicate flash actions cannot reopen monitoring. Completion restores the existing pause and session policy. `ProcessInfo` activity prevents idle sleep and automatic termination during the operation; the app delegate rejects ordinary Quit until completion. Closing Settings is allowed. The code never terminates the flasher as a cancellation mechanism.
 
 Output is bounded to 32 KiB with backpressure on delivery to the main thread. ANSI color codes are removed for plain-text presentation. There are no periodic subprocess checks, fabricated percentage indicators, or persistent firmware jobs. Temporary file copies are removed on replacement, clearing, and normal shutdown. Zapp remains responsible for firmware/device validation and writing; format checks do not prove compatibility.
+
+The bundled Zapp has a presentation patch for captured output. Upstream’s `indicatif` hides its spinner and progress bar on pipes, leaving only “Firmware loaded” visible while it waits for bootloader mode. When the progress display is hidden, Zapp prints the reset instruction and actual progress as plain-text lines, suppressing duplicate percentages within a phase. Terminal progress retains its normal display. The patch’s subprocess regression exercises these renderers with piped output and `TERM=dumb`, without USB enumeration or firmware writes.
 
 ## Validation and future work
 

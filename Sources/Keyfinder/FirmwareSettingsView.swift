@@ -67,7 +67,7 @@ struct FirmwareSettingsView: View {
                         if firmware.isFlashing {
                             HStack(spacing: 12) {
                                 ProgressView().controlSize(.small)
-                                Text("Follow Zapp’s instructions below. Press your keyboard’s reset button if requested.")
+                                Text("When Zapp is waiting for bootloader mode, press your keyboard’s reset button to start flashing.")
                                     .font(.callout)
                             }
                             Text("The overlay is paused. You can close Settings; Keyfinder will stay open until flashing finishes.")

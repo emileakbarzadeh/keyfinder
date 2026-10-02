@@ -48,7 +48,7 @@ If the firmware cannot identify its layout, you can explicitly choose the previe
 1. Compile your layout in Oryx and download its firmware.
 2. Open **Settings → Firmware**. Drop one `.bin` onto the file target, or use **Choose file…**.
 3. Review the filename and connect only the keyboard you intend to update. Click **Flash keyboard** to begin.
-4. Follow the instructions in **Zapp output**, including pressing the keyboard’s reset button if requested. Keep the keyboard connected until Zapp finishes.
+4. When **Zapp output** says it is waiting for bootloader mode, press your keyboard’s physical reset button to start flashing. Keep the keyboard connected until Zapp finishes.
 
 Keyfinder copies the selected file into a private temporary directory before displaying it. Changing the download afterward cannot change the bytes being flashed. Empty files, directories, links, and files larger than 64 MiB are rejected. The checksum disclosure shows the staged file’s SHA-256. Zapp handles firmware compatibility and the device write; a `.bin` extension alone does not establish that a file matches your keyboard.
 
@@ -57,6 +57,8 @@ This section accepts `.bin` files. If your keyboard’s firmware download uses a
 During flashing, Keyfinder closes its HID connection, unregisters the hold shortcut, hides the overlay, and prevents idle system sleep. Closing Settings leaves the flash running. Quit shows a “Keep flashing” message while Zapp is running; quit again after it exits. There is no cancel button that could interrupt a write. Afterward, monitoring resumes unless it was already paused or your session is asleep/inactive. A reconnect loads the newly installed Oryx revision.
 
 Success requires Zapp to exit successfully. Failures show its output and exit status; correct the reported problem before trying again. Keyfinder runs `zapp flash <staged-file>` directly, without a shell or automatic prompt responses. Only one keyboard should be connected; terminal-only interactions are not supported in this view.
+
+“Firmware loaded” means Zapp has read the file. It still needs the keyboard in bootloader mode before it can write. If an older build shows only that line, press the keyboard’s physical reset button. The bundled Zapp now displays the bootloader waiting message and erasing, writing, and resetting progress in the output panel.
 
 Release apps carry Zapp in the bundle, and the nix-darwin module installs that same app. Source builds find Zapp in the development shell’s `PATH`. No root service or additional macOS privacy request is installed. Staged firmware and output are not saved to preferences or the layout cache.
 

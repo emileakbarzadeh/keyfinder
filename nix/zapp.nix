@@ -22,6 +22,8 @@ rustPlatform.buildRustPackage (finalAttrs: {
     hash = "sha256-K+L8Hyw8BFyYoHGofRJrZqwTwth3Q2ypAq3uj8rO57I=";
   };
   cargoHash = "sha256-4MhPi6Ej37M+O7OE5sgzS7zhUhgawLEwxkNRSadwVcI=";
+  # indicatif suppresses prompts and progress when Keyfinder captures a pipe.
+  patches = [ ./patches/zapp-piped-progress.patch ];
   nativeBuildInputs = [ pkg-config ];
   buildInputs = lib.optionals stdenv.hostPlatform.isLinux [ udev ];
   nativeInstallCheckInputs = [ versionCheckHook ];

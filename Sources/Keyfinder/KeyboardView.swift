@@ -2,13 +2,13 @@ import AppKit
 import KeyfinderCore
 
 /// A static view: AppKit draws it only when content, size, or appearance changes.
-final class KeyboardView: NSView {
+class KeyboardView: NSView, NSViewToolTipOwner {
     static let padding: CGFloat = 22
     static let header: CGFloat = 68
     var geometry: KeyboardGeometry { didSet { if geometry != oldValue { rebuildTooltips(); needsDisplay = true } } }
     var presentedLayer: PresentedLayer? { didSet { if presentedLayer != oldValue { rebuildTooltips(); needsDisplay = true } } }
     var message: String? { didSet { if message != oldValue { needsDisplay = true } } }
-    var preview = false { didSet { needsDisplay = true } }
+    var preview = false { didSet { if preview != oldValue { rebuildTooltips() }; needsDisplay = true } }
     var useKeyColors = true { didSet { needsDisplay = true } }
     var arranging = false { didSet { needsDisplay = true } }
     var unverified = false { didSet { needsDisplay = true } }
@@ -19,6 +19,7 @@ final class KeyboardView: NSView {
         didSet { if rendersContent && !oldValue { needsDisplay = true } }
     }
     private(set) var drawCount = 0
+    private var tooltipText: [NSView.ToolTipTag: String] = [:]
     override var isFlipped: Bool { true }
     override var isOpaque: Bool { false }
 
@@ -156,10 +157,19 @@ final class KeyboardView: NSView {
     override func setFrameSize(_ newSize: NSSize) { super.setFrameSize(newSize); rebuildTooltips() }
     private func rebuildTooltips() {
         removeAllToolTips()
+        tooltipText.removeAll(keepingCapacity: true)
         guard preview, let layer = presentedLayer else { return }
         for key in geometry.keys where layer.keys.indices.contains(key.index) {
-            addToolTip(path(for: key).bounds, owner: layer.keys[key.index].detail as NSString, userData: nil)
+            // AppKit does not retain the owner. A temporary NSString bridge can
+            // be freed before the hover timer fires; the view owns this data.
+            let tag = addToolTip(path(for: key).bounds, owner: self, userData: nil)
+            tooltipText[tag] = layer.keys[key.index].detail
         }
+    }
+
+    func view(_ view: NSView, stringForToolTip tag: NSView.ToolTipTag, point: NSPoint, userData data: UnsafeMutableRawPointer?) -> String {
+        guard view === self, preview else { return "" }
+        return tooltipText[tag] ?? ""
     }
 }
 

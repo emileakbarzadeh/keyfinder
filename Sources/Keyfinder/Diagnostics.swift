@@ -113,6 +113,7 @@ import KeyfinderCore
                 monitor.emit(.disconnected)
 
                 checks.merge(try await checkKeyboardModels(directory: temporary)) { _, new in new }
+                checks.merge(try checkKeyboardTooltips()) { _, new in new }
                 checks.merge(try await checkHotKeys(directory: temporary)) { _, new in new }
                 let progress: [String: Any] = ["passed": false, "checks": checks, "error": "GUI checks did not finish.", "hardware_tested": false]
                 if let data = try? JSONSerialization.data(withJSONObject: progress, options: [.prettyPrinted, .sortedKeys]) {

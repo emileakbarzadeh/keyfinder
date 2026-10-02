@@ -33,7 +33,11 @@ The signed app bundle and compiled launcher use separate store outputs. The defa
 
 [zapp.nix](../nix/zapp.nix) backports the Nixpkgs Zapp 1.0.2 package, with its fixed source and Cargo dependency hashes, to Keyfinder’s 26.05 Darwin toolchain. That branch does not include Zapp; keeping it allows Intel builds. The app derivation copies the executable into `Contents/Helpers/zapp`, includes its upstream license files, and signs the helper before signing the app. The module and disk image carry this same bundle; enabling `programs.zapp` separately is unnecessary.
 
+[zapp-piped-progress.patch](../nix/patches/zapp-piped-progress.patch) makes Zapp print its bootloader/reset instruction and progress when its terminal display is hidden, including in Keyfinder’s captured output. It includes a regression test that renders progress in a subprocess with piped output and no USB access. The patch applies to the bundled helper and the development shell’s Zapp.
+
 [check-zapp-bundle.py](../scripts/check-zapp-bundle.py) rejects non-system dynamic libraries and Nix store paths in the helper’s Mach-O load commands. It also runs only `zapp --help` to check that the flash command is present. The build fails if the upstream package gains dependencies that would prevent it running outside the store. Zapp’s license is MIT with the Commons Clause, as recorded by Nixpkgs; the bundled upstream files retain its terms.
+
+Zapp’s Nix build links to Darwin `libiconv`. During app installation, the derivation changes that load command to `/usr/lib/libiconv.2.dylib`, supplied by macOS with the same version-7 ABI. It then signs the modified helper before running the standalone check. The bundle rejects references to Nix’s `libiconv` output as well as the original Zapp package.
 
 ## Building and verifying
 
