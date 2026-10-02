@@ -44,7 +44,7 @@ nix run .#benchmark -- --seconds 30 --output artifacts/idle-performance.json
 nix build .#dmg --out-link result-dmg
 ```
 
-The package's offline core checks run inside the build. GUI checks, preview rendering, and performance measurements run explicitly in your desktop session. They are not cached as build-time test results, and they do not run during system activation. The smoke command accepts an optional report path; previews accepts an optional output directory. Previews renders each bundled layer in Light and Dark, plus a selected key and unverified-revision badge with Oryx colors disabled. Light assets use a `-light` filename suffix. Relative paths resolve from the directory where you invoke Nix.
+The package's offline core checks run inside the build. GUI checks, preview rendering, and performance measurements run explicitly in your desktop session. They are not cached as build-time test results, and they do not run during system activation. The smoke command accepts an optional report path; previews accepts an optional output directory. Previews renders each bundled layer in Light and Dark, plus a selected key and unverified-revision subtitle with Oryx colors disabled. Light assets use a `-light` filename suffix. The command also renders numbered Voyager and ErgoDox EZ diagrams for checking key positions. Relative paths resolve from the directory where you invoke Nix.
 
 The benchmark starts its own app process and terminates only that process. Disconnect the keyboard and keep Settings closed when measuring the unplugged idle baseline. Reports are observations of the host and cannot be reproduced as fixed derivation outputs.
 
@@ -63,7 +63,7 @@ swift build
 swift run KeyfinderCoreChecks
 ```
 
-Core checks use synthetic fixtures and do not contact Oryx. To check the service explicitly, run `swift run KeyfinderCoreChecks --live-oryx '<exact-revision Moonlander URL>'` with a URL you choose; `latest` URLs are rejected so the expected identity is unambiguous. No account or layout URL is built into the test runner.
+Core checks use synthetic fixtures and do not contact Oryx. To check the service explicitly, run `swift run KeyfinderCoreChecks --live-oryx '<exact-revision Oryx URL>'` with a URL you choose; `latest` URLs are rejected so the expected identity is unambiguous. No account or layout URL is built into the test runner.
 
 To update pinned dependencies, run `nix flake update`, review `flake.lock`, then rebuild and rerun checks. Updating the compiler also requires reviewing the URL and content hash in `nix/toolchain.nix`.
 

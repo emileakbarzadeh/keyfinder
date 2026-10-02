@@ -74,7 +74,7 @@ let
       sdk
     ];
     meta = {
-      description = "A native Moonlander layer overlay for macOS 26+";
+      description = "A native ZSA keyboard layer overlay for macOS 26+";
       platforms = lib.platforms.darwin;
     };
   };

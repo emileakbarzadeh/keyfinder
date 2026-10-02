@@ -4,7 +4,7 @@ public enum KeyfinderError: LocalizedError, Equatable {
     case invalidURL, invalidIdentity, invalidLayout(String), service(String)
     public var errorDescription: String? {
         switch self {
-        case .invalidURL: return "Use a Moonlander layout URL from configure.zsa.io."
+        case .invalidURL: return "Use a supported keyboard layout URL from configure.zsa.io."
         case .invalidIdentity: return "The keyboard did not provide a recognizable Oryx layout and revision."
         case .invalidLayout(let detail): return "This layout cannot be used: \(detail)"
         case .service(let detail): return detail
@@ -15,17 +15,25 @@ public enum KeyfinderError: LocalizedError, Equatable {
 public struct LayoutIdentity: Codable, Hashable, Sendable {
     public let layoutID: String
     public let revisionID: String
-    public var cacheKey: String { "moonlander-\(layoutID)-\(revisionID)-v1" }
-    public var url: URL { URL(string: "https://configure.zsa.io/moonlander/layouts/\(layoutID)/\(revisionID)/0")! }
+    public let keyboard: KeyboardModel
+    public var cacheKey: String { "\(keyboard.rawValue)-\(layoutID)-\(revisionID)-v1" }
+    public var url: URL { URL(string: "https://configure.zsa.io/\(keyboard.rawValue)/layouts/\(layoutID)/\(revisionID)/0")! }
 
-    public init(layoutID: String, revisionID: String) throws {
+    public init(layoutID: String, revisionID: String, keyboard: KeyboardModel = .moonlander) throws {
         guard Self.validID(layoutID), Self.validID(revisionID), revisionID != "latest" else { throw KeyfinderError.invalidIdentity }
-        self.layoutID = layoutID; self.revisionID = revisionID
+        self.layoutID = layoutID; self.revisionID = revisionID; self.keyboard = keyboard
     }
-    public init(serial: String) throws {
+    public init(serial: String, keyboard: KeyboardModel = .moonlander) throws {
         let parts = serial.trimmingCharacters(in: .whitespacesAndNewlines).split(separator: "/", omittingEmptySubsequences: false)
         guard parts.count == 2 else { throw KeyfinderError.invalidIdentity }
-        try self.init(layoutID: String(parts[0]), revisionID: String(parts[1]))
+        try self.init(layoutID: String(parts[0]), revisionID: String(parts[1]), keyboard: keyboard)
+    }
+    private enum CodingKeys: String, CodingKey { case layoutID, revisionID, keyboard }
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        try self.init(layoutID: values.decode(String.self, forKey: .layoutID),
+                      revisionID: values.decode(String.self, forKey: .revisionID),
+                      keyboard: values.decodeIfPresent(KeyboardModel.self, forKey: .keyboard) ?? .moonlander)
     }
     public static func validID(_ value: String) -> Bool {
         !value.isEmpty && value.utf8.count <= 64 && value.utf8.allSatisfy {
@@ -35,6 +43,7 @@ public struct LayoutIdentity: Codable, Hashable, Sendable {
 }
 
 public struct OryxLocation: Equatable, Sendable {
+    public let keyboard: KeyboardModel
     public let layoutID: String
     public let revisionID: String?
     public init(url text: String) throws {
@@ -42,9 +51,10 @@ public struct OryxLocation: Equatable, Sendable {
               url.scheme == "https", url.host?.lowercased() == "configure.zsa.io",
               url.user == nil, url.password == nil, url.port == nil else { throw KeyfinderError.invalidURL }
         let parts = url.path.split(separator: "/").map(String.init)
-        guard (3...5).contains(parts.count), parts[0] == "moonlander", parts[1] == "layouts",
+        guard (3...5).contains(parts.count), let keyboard = KeyboardModel(rawValue: parts[0]), parts[1] == "layouts",
               LayoutIdentity.validID(parts[2]) else { throw KeyfinderError.invalidURL }
         if parts.count == 5, Int(parts[4]) == nil { throw KeyfinderError.invalidURL }
+        self.keyboard = keyboard
         layoutID = parts[2]
         let revision = parts.count >= 4 ? parts[3] : "latest"
         guard LayoutIdentity.validID(revision) else { throw KeyfinderError.invalidURL }
@@ -94,17 +104,24 @@ public struct KeyboardLayer: Codable, Equatable, Sendable {
 public struct LayoutSnapshot: Codable, Equatable, Sendable {
     public let schemaVersion: Int
     public let layoutID: String
-    public let geometry: String
+    public let keyboard: KeyboardModel
+    public var geometry: String { keyboard.rawValue }
     public let title: String
     public let revisionID: String
     public let source: JSONValue
 
-    public init(layoutID: String, title: String, revisionID: String, source: JSONValue) {
-        self.schemaVersion = 1; self.layoutID = layoutID; self.geometry = "moonlander"
+    public var keyboardName: String { keyboard.displayName }
+    private enum CodingKeys: String, CodingKey {
+        case schemaVersion, layoutID, title, revisionID, source
+        case keyboard = "geometry"
+    }
+
+    public init(layoutID: String, title: String, revisionID: String, source: JSONValue, keyboard: KeyboardModel = .moonlander) {
+        self.schemaVersion = 1; self.layoutID = layoutID; self.keyboard = keyboard
         self.title = title; self.revisionID = revisionID; self.source = source
     }
-    public var identity: LayoutIdentity { try! LayoutIdentity(layoutID: layoutID, revisionID: revisionID) }
-    public var isDemo: Bool { layoutID == "keyfinder-demo" && revisionID == "v1" }
+    public var identity: LayoutIdentity { try! LayoutIdentity(layoutID: layoutID, revisionID: revisionID, keyboard: keyboard) }
+    public var isDemo: Bool { keyboard == .moonlander && layoutID == "keyfinder-demo" && revisionID == "v1" }
     public var layers: [KeyboardLayer] {
         (source["layers"]?.array ?? []).compactMap { raw in
             guard let position = raw["position"]?.integer, let keys = raw["keys"]?.array else { return nil }
@@ -112,8 +129,8 @@ public struct LayoutSnapshot: Codable, Equatable, Sendable {
         }.sorted { $0.position < $1.position }
     }
     public func validated(expected: LayoutIdentity? = nil) throws -> LayoutSnapshot {
-        guard schemaVersion == 1, geometry == "moonlander" else { throw KeyfinderError.invalidLayout("unsupported file version or keyboard model.") }
-        let identity = try LayoutIdentity(layoutID: layoutID, revisionID: revisionID)
+        guard schemaVersion == 1 else { throw KeyfinderError.invalidLayout("unsupported file version or keyboard model.") }
+        let identity = try LayoutIdentity(layoutID: layoutID, revisionID: revisionID, keyboard: keyboard)
         if let expected, expected != identity { throw KeyfinderError.invalidLayout("the returned revision does not match the installed firmware.") }
         guard source["hashId"]?.string == revisionID, let entries = source["layers"]?.array, !entries.isEmpty, entries.count <= 32 else {
             throw KeyfinderError.invalidLayout("missing revision or layer data.")
@@ -121,8 +138,8 @@ public struct LayoutSnapshot: Codable, Equatable, Sendable {
         let layers = self.layers
         guard layers.count == entries.count, layers.first?.position == 0,
               Set(layers.map(\.position)).count == layers.count,
-              layers.allSatisfy({ (0..<32).contains($0.position) && $0.keys.count == 72 }) else {
-            throw KeyfinderError.invalidLayout("expected distinct Moonlander layers with 72 keys each, including layer 0.")
+              layers.allSatisfy({ (0..<32).contains($0.position) && $0.keys.count == keyboard.keyCount }) else {
+            throw KeyfinderError.invalidLayout("expected distinct \(keyboard.displayName) layers with \(keyboard.keyCount) keys each, including layer 0.")
         }
         return self
     }

@@ -2,8 +2,9 @@ import Foundation
 
 public struct KeyGeometry: Codable, Equatable, Sendable {
     public let index: Int
-    public let row: Int
-    public let column: Int
+    // Matrix metadata is optional; the overlay uses Oryx key indices only.
+    public let row: Int?
+    public let column: Int?
     public let x: Double
     public let y: Double
     public let width: Double
@@ -19,13 +20,35 @@ public struct KeyGeometry: Codable, Equatable, Sendable {
     }
 }
 
-public enum MoonlanderGeometry {
-    public static let width = 17.0
-    public static let height = 8.083
-    public static func load() throws -> [KeyGeometry] {
-        guard let url = CoreResources.bundle.url(forResource: "Moonlander", withExtension: "json") else { throw KeyfinderError.invalidLayout("keyboard geometry is missing.") }
+public struct KeyboardGeometry: Equatable, Sendable {
+    public let keyboard: KeyboardModel
+    public let width: Double
+    public let height: Double
+    public let keys: [KeyGeometry]
+
+    private static let definitions: [KeyboardModel: Result<KeyboardGeometry, Error>] = Dictionary(
+        uniqueKeysWithValues: KeyboardModel.allCases.map { keyboard in
+            (keyboard, Result { try read(keyboard) })
+        }
+    )
+    public static func load(for keyboard: KeyboardModel = .moonlander) throws -> KeyboardGeometry {
+        try definitions[keyboard]!.get()
+    }
+    private static func read(_ keyboard: KeyboardModel) throws -> KeyboardGeometry {
+        guard let url = CoreResources.bundle.url(forResource: keyboard.resourceName, withExtension: "json") else {
+            throw KeyfinderError.invalidLayout("\(keyboard.displayName) geometry is missing.")
+        }
         let keys = try JSONDecoder().decode([KeyGeometry].self, from: Data(contentsOf: url))
-        guard keys.count == 72, keys.map(\.index) == Array(0..<72) else { throw KeyfinderError.invalidLayout("invalid keyboard geometry.") }
-        return keys
+        let size: (Double, Double)
+        switch keyboard {
+        case .moonlander: size = (17, 8.083)
+        case .voyager: size = (14, 5.6)
+        case .ergodoxEZ: size = (20, 8)
+        }
+        guard keys.count == keyboard.keyCount, keys.map(\.index) == Array(0..<keyboard.keyCount),
+              keys.allSatisfy({ key in
+                  key.width > 0 && key.height > 0 && [key.x, key.y, key.width, key.height, key.rotation, key.pivotX, key.pivotY].allSatisfy(\.isFinite)
+              }) else { throw KeyfinderError.invalidLayout("invalid \(keyboard.displayName) geometry.") }
+        return KeyboardGeometry(keyboard: keyboard, width: size.0, height: size.1, keys: keys)
     }
 }

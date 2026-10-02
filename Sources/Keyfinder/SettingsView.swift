@@ -19,7 +19,7 @@ struct SettingsView: View {
                     .frame(width: 52, height: 52).background(Color(nsColor: Theme.orange), in: RoundedRectangle(cornerRadius: 13))
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Keyfinder").font(.title2.weight(.semibold))
-                    Text("Moonlander layer overlay").foregroundStyle(Color(nsColor: Theme.mutedText))
+                    Text(model.connectedKeyboardName.map { "\($0) layer overlay" } ?? "Keyboard layer overlay").foregroundStyle(Color(nsColor: Theme.mutedText))
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 5) {
@@ -67,18 +67,18 @@ struct SettingsView: View {
                 }
             }
             KeyboardPreview(model: model)
-                .aspectRatio(920 / KeyboardView.height(forWidth: 920), contentMode: .fit)
+                .aspectRatio(920 / KeyboardView.height(forWidth: 920, geometry: model.geometry), contentMode: .fit)
                 .frame(maxWidth: .infinity, maxHeight: 510)
             VStack(alignment: .leading, spacing: 7) {
                 Text(model.selectedKey == nil ? "Explore your layout" : "Key details").font(.headline)
                 ScrollView {
-                    Text(model.selectedKey?.detail ?? "Click a key to see its tap, hold, and inherited actions. This preview is available even when your Moonlander is unplugged.")
+                    Text(model.selectedKey?.detail ?? "Click a key to see its tap, hold, and inherited actions. This preview is available even when your keyboard is unplugged.")
                         .font(.callout).foregroundStyle(Color(nsColor: Theme.mutedText)).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
                 }.frame(height: 76)
             }.padding(14).frame(maxWidth: .infinity, alignment: .leading)
                 .background(Color(nsColor: Theme.surface), in: RoundedRectangle(cornerRadius: 12))
             HStack {
-                Text(model.previewSnapshot?.isDemo == true ? "Keyfinder Demo · offline example" : "\(model.previewSnapshot?.title ?? "Moonlander") · revision \(model.previewSnapshot?.revisionID ?? "—")")
+                Text(model.previewSnapshot?.isDemo == true ? "Keyfinder Demo · offline example" : "\(model.previewSnapshot?.title ?? "Keyboard") · revision \(model.previewSnapshot?.revisionID ?? "—")")
                 Spacer()
                 Text("Preview does not change your keyboard")
             }.font(.caption).foregroundStyle(Color(nsColor: Theme.mutedText))
@@ -151,12 +151,14 @@ struct SettingsView: View {
     private var connectionTab: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
-                SettingsSection("Moonlander") {
+                SettingsSection(model.connectedKeyboardName ?? "Keyboard") {
                     LabeledContent("Status", value: model.status)
                     if let layer = model.currentLayer { LabeledContent("Active layer", value: "\(layer)") }
                     if let revision = model.installedRevision { LabeledContent("Installed revision", value: revision) }
                     if let version = model.protocolVersion { LabeledContent("Oryx protocol", value: "\(version)") }
                     Text(model.connectionDetail).foregroundStyle(Color(nsColor: Theme.mutedText)).textSelection(.enabled)
+                    Text("Supported keyboards: " + KeyboardModel.allCases.map(\.displayName).joined(separator: ", "))
+                        .font(.caption).foregroundStyle(Color(nsColor: Theme.mutedText))
                     HStack {
                         Button("Retry connection") { model.retryConnection() }.disabled(model.isPaused)
                         Button(model.isPaused ? "Resume monitoring" : "Pause monitoring") { model.togglePause() }
@@ -166,11 +168,11 @@ struct SettingsView: View {
                     }
                     if model.connected && !model.identityVerified {
                         Button("Use preview revision for this keyboard (unverified)") { model.usePreviewForUnidentifiedKeyboard() }
-                            .disabled(model.previewSnapshot?.isDemo != false)
+                            .disabled(model.previewSnapshot?.isDemo != false || model.previewSnapshot?.keyboard != model.connectedKeyboardModel)
                     }
                 }
                 SettingsSection("Oryx layout") {
-                    TextField("Layout URL", text: $urlText, prompt: Text("Paste a Moonlander layout URL from Oryx")).textFieldStyle(.roundedBorder)
+                    TextField("Layout URL", text: $urlText, prompt: Text("Paste a keyboard layout URL from Oryx")).textFieldStyle(.roundedBorder)
                     HStack {
                         Button(model.isRefreshing ? "Loading…" : "Load / refresh preview") { model.refreshLayout(url: urlText) }
                             .disabled(model.isRefreshing || urlText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -183,7 +185,7 @@ struct SettingsView: View {
                     }
                     if let notice = model.notice { Text(notice).font(.callout).foregroundStyle(Color(nsColor: Theme.mutedText)).textSelection(.enabled) }
                     if model.previewSnapshot?.isDemo == true {
-                        Text("This offline demo is a synthetic example. Connect a Moonlander, paste an Oryx URL, or import a snapshot to use a real layout.").font(.callout).foregroundStyle(Color(nsColor: Theme.mutedText))
+                        Text("This offline demo is a synthetic example. Connect your keyboard, paste an Oryx URL, or import a snapshot to use a real layout.").font(.callout).foregroundStyle(Color(nsColor: Theme.mutedText))
                     }
                     Text("The live overlay follows the revision installed on your keyboard. After flashing in Oryx, it updates when the keyboard reconnects. Refreshing here changes the preview.").font(.callout).foregroundStyle(Color(nsColor: Theme.mutedText))
                 }
@@ -237,6 +239,7 @@ struct KeyboardPreview: NSViewRepresentable {
         return view
     }
     func updateNSView(_ view: KeyboardView, context: Context) {
+        if view.geometry != model.geometry { view.geometry = model.geometry }
         view.presentedLayer = model.selectedPreview
         if view.useKeyColors != model.preferences.useKeyColors { view.useKeyColors = model.preferences.useKeyColors }
         if view.selectedIndex != model.selectedKeyIndex { view.selectedIndex = model.selectedKeyIndex }

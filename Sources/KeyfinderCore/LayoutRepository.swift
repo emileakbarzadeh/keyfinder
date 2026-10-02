@@ -4,7 +4,7 @@ import FoundationNetworking
 #endif
 
 public protocol LayoutFetching: Sendable {
-    func fetch(layoutID: String, revisionID: String) async throws -> LayoutSnapshot
+    func fetch(keyboard: KeyboardModel, layoutID: String, revisionID: String) async throws -> LayoutSnapshot
 }
 
 public struct OryxClient: LayoutFetching, @unchecked Sendable {
@@ -21,23 +21,23 @@ public struct OryxClient: LayoutFetching, @unchecked Sendable {
         #endif
         self.session = URLSession(configuration: config)
     }
-    public func fetch(layoutID: String, revisionID: String) async throws -> LayoutSnapshot {
+    public func fetch(keyboard: KeyboardModel, layoutID: String, revisionID: String) async throws -> LayoutSnapshot {
         guard LayoutIdentity.validID(layoutID), LayoutIdentity.validID(revisionID) else { throw KeyfinderError.invalidIdentity }
         let query = "query Keyfinder($hashId: String!, $revisionId: String!, $geometry: String) { layout(hashId: $hashId, revisionId: $revisionId, geometry: $geometry) { title revision { hashId layers { title position keys } } } }"
         var request = URLRequest(url: URL(string: "https://oryx.zsa.io/graphql")!)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Keyfinder/1.0", forHTTPHeaderField: "User-Agent")
-        request.httpBody = try JSONSerialization.data(withJSONObject: ["query": query, "variables": ["hashId": layoutID, "revisionId": revisionID, "geometry": "moonlander"]])
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["query": query, "variables": ["hashId": layoutID, "revisionId": revisionID, "geometry": keyboard.rawValue]])
         let (data, response) = try await session.data(for: request)
         try Task.checkCancellation()
         guard let response = response as? HTTPURLResponse, response.statusCode == 200 else {
             throw KeyfinderError.service("Oryx is unavailable. Try Refresh when your connection is restored.")
         }
         guard data.count <= 8 * 1024 * 1024 else { throw KeyfinderError.invalidLayout("the response is too large.") }
-        return try Self.decodeResponse(data, layoutID: layoutID, revisionID: revisionID)
+        return try Self.decodeResponse(data, keyboard: keyboard, layoutID: layoutID, revisionID: revisionID)
     }
-    public static func decodeResponse(_ data: Data, layoutID: String, revisionID: String) throws -> LayoutSnapshot {
+    public static func decodeResponse(_ data: Data, keyboard: KeyboardModel = .moonlander, layoutID: String, revisionID: String) throws -> LayoutSnapshot {
         let root = try JSONDecoder().decode(JSONValue.self, from: data)
         if let errors = root["errors"]?.array, !errors.isEmpty {
             throw KeyfinderError.service("Oryx could not return this layout. Check the URL and its sharing settings, or import a saved snapshot.")
@@ -46,8 +46,8 @@ public struct OryxClient: LayoutFetching, @unchecked Sendable {
               let actualRevision = source["hashId"]?.string else {
             throw KeyfinderError.service("This layout is unavailable. Check its URL and sharing settings, or import a saved snapshot.")
         }
-        let snapshot = LayoutSnapshot(layoutID: layoutID, title: layout["title"]?.string ?? "Moonlander", revisionID: actualRevision, source: source)
-        let expected = revisionID == "latest" ? nil : try LayoutIdentity(layoutID: layoutID, revisionID: revisionID)
+        let snapshot = LayoutSnapshot(layoutID: layoutID, title: layout["title"]?.string ?? keyboard.displayName, revisionID: actualRevision, source: source, keyboard: keyboard)
+        let expected = revisionID == "latest" ? nil : try LayoutIdentity(layoutID: layoutID, revisionID: revisionID, keyboard: keyboard)
         return try snapshot.validated(expected: expected)
     }
 }
@@ -70,15 +70,19 @@ public actor LayoutRepository {
     }
     public func installed(_ identity: LayoutIdentity) async throws -> LayoutSnapshot {
         if let cached = cached(identity) { return cached }
-        let snapshot = try await client.fetch(layoutID: identity.layoutID, revisionID: identity.revisionID)
+        let snapshot = try await client.fetch(keyboard: identity.keyboard, layoutID: identity.layoutID, revisionID: identity.revisionID)
         try Task.checkCancellation()
         _ = try snapshot.validated(expected: identity)
         try save(snapshot)
         return snapshot
     }
     public func refresh(_ location: OryxLocation) async throws -> LayoutSnapshot {
-        let snapshot = try await client.fetch(layoutID: location.layoutID, revisionID: location.revisionID ?? "latest")
+        let snapshot = try await client.fetch(keyboard: location.keyboard, layoutID: location.layoutID, revisionID: location.revisionID ?? "latest")
         try Task.checkCancellation()
+        guard snapshot.keyboard == location.keyboard, snapshot.layoutID == location.layoutID,
+              location.revisionID == nil || snapshot.revisionID == location.revisionID else {
+            throw KeyfinderError.invalidLayout("the returned layout does not match the requested keyboard and revision.")
+        }
         try save(snapshot)
         return snapshot
     }

@@ -5,8 +5,7 @@ import KeyfinderCore
 final class KeyboardView: NSView {
     static let padding: CGFloat = 22
     static let header: CGFloat = 68
-    static let footer: CGFloat = 26
-    let geometry: [KeyGeometry]
+    var geometry: KeyboardGeometry { didSet { if geometry != oldValue { rebuildTooltips(); needsDisplay = true } } }
     var presentedLayer: PresentedLayer? { didSet { if presentedLayer != oldValue { rebuildTooltips(); needsDisplay = true } } }
     var message: String? { didSet { if message != oldValue { needsDisplay = true } } }
     var preview = false { didSet { needsDisplay = true } }
@@ -30,13 +29,13 @@ final class KeyboardView: NSView {
         needsDisplay = rendersContent
     }
 
-    init(geometry: [KeyGeometry]) { self.geometry = geometry; super.init(frame: .zero) }
+    init(geometry: KeyboardGeometry) { self.geometry = geometry; super.init(frame: .zero) }
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
-    static func height(forWidth width: CGFloat) -> CGFloat {
-        header + footer + (width - padding * 2) / MoonlanderGeometry.width * MoonlanderGeometry.height
+    static func height(forWidth width: CGFloat, geometry: KeyboardGeometry) -> CGFloat {
+        header + padding + (width - padding * 2) / geometry.width * geometry.height
     }
-    private var unit: CGFloat { max(1, (bounds.width - Self.padding * 2) / MoonlanderGeometry.width) }
+    private var unit: CGFloat { max(1, (bounds.width - Self.padding * 2) / geometry.width) }
     private func center(for key: KeyGeometry) -> NSPoint {
         let point = key.transformed(x: key.x + key.width / 2, y: key.y + key.height / 2)
         return NSPoint(x: Self.padding + point.x * unit, y: Self.header + point.y * unit)
@@ -58,30 +57,14 @@ final class KeyboardView: NSView {
         guard rendersContent else { return }
         drawCount += 1
         let colors = Theme.palette(for: effectiveAppearance)
-        colors.background.setFill()
-        NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), xRadius: 19, yRadius: 19).fill()
-        colors.border.setStroke()
-        let border = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), xRadius: 19, yRadius: 19)
-        border.lineWidth = 1; border.stroke()
-
         drawText(presentedLayer?.name ?? "Keyfinder", in: NSRect(x: 25, y: 18, width: bounds.width * 0.56, height: 25), size: 20, weight: .semibold, color: colors.text, align: .left)
-        let subtitle = (presentedLayer.map { "\($0.layoutTitle)  /  Moonlander" } ?? "Moonlander") + (unverified ? "  ·  Unverified revision" : "")
+        let subtitle = (presentedLayer.map { "\($0.layoutTitle)  /  \($0.keyboardName)" } ?? geometry.keyboard.displayName) + (unverified ? "  ·  Unverified revision" : "")
         drawText(subtitle, in: NSRect(x: 26, y: 43, width: bounds.width * 0.58, height: 15), size: 10, color: colors.mutedText, align: .left)
-        let badge = unverified ? "UNVERIFIED" : arranging ? "DRAG TO POSITION" : preview ? "PREVIEW" : "LIVE"
-        let badgeWidth: CGFloat = unverified ? 94 : arranging ? 126 : 69
-        let badgeRect = NSRect(x: bounds.width - badgeWidth - 25, y: 22, width: badgeWidth, height: 24)
-        (unverified ? Theme.red : Theme.orange).setFill(); NSBezierPath(roundedRect: badgeRect, xRadius: 7, yRadius: 7).fill()
-        drawText(badge, in: badgeRect.insetBy(dx: 3, dy: 6), size: 9, weight: .semibold, color: unverified ? Theme.parchment : Theme.ink)
-
         if let layer = presentedLayer {
-            for key in geometry {
+            for key in geometry.keys {
                 guard layer.keys.indices.contains(key.index) else { continue }
                 draw(key, presentation: layer.keys[key.index], colors: colors)
             }
-            let legend = arranging ? "Drag the keyboard, then choose Done arranging in Settings." :
-                layer.ambiguousCount > 0 ? "↳  Inherited keys show alternatives when lower layers may differ." :
-                layer.inheritedCount > 0 ? "↳  Dimmed keys inherit their action from a lower layer." : "Tap actions are primary. Hold actions appear below."
-            drawText(legend, in: NSRect(x: 25, y: bounds.height - 23, width: bounds.width - 50, height: 13), size: 10, color: colors.mutedText, align: .left)
         } else {
             drawText(message ?? "Waiting for the keyboard", in: NSRect(x: 35, y: 92, width: bounds.width - 70, height: max(60, bounds.height - 115)), size: 14, color: colors.text)
         }
@@ -139,14 +122,14 @@ final class KeyboardView: NSView {
             onDragFinished?()
         } else if let onSelect {
             let point = convert(event.locationInWindow, from: nil)
-            if let key = geometry.first(where: { path(for: $0).contains(point) }) { selectedIndex = key.index; onSelect(key.index) }
+            if let key = geometry.keys.first(where: { path(for: $0).contains(point) }) { selectedIndex = key.index; onSelect(key.index) }
         }
     }
     override func setFrameSize(_ newSize: NSSize) { super.setFrameSize(newSize); rebuildTooltips() }
     private func rebuildTooltips() {
         removeAllToolTips()
         guard preview, let layer = presentedLayer else { return }
-        for key in geometry where layer.keys.indices.contains(key.index) {
+        for key in geometry.keys where layer.keys.indices.contains(key.index) {
             addToolTip(path(for: key).bounds, owner: layer.keys[key.index].detail as NSString, userData: nil)
         }
     }

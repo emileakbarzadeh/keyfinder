@@ -23,7 +23,7 @@ import KeyfinderCore
             }
             if arguments.first == "--diagnostics" {
                 let snapshot = try LayoutSnapshot.bundled()
-                print("Keyfinder 1.0 · macOS 26+\nBundled layout: \(snapshot.layoutID)/\(snapshot.revisionID)\nLayers: \(snapshot.layers.count) · keys: \(try MoonlanderGeometry.load().count)\nPeriodic jobs: none\nUSB: ZSA raw HID, non-exclusive, callbacks only")
+                print("Keyfinder 1.0 · macOS 26+\nBundled layout: \(snapshot.layoutID)/\(snapshot.revisionID)\nLayers: \(snapshot.layers.count) · keys: \(try KeyboardGeometry.load().keys.count)\nPeriodic jobs: none\nUSB: ZSA raw HID, non-exclusive, callbacks only")
                 return
             }
             if !arguments.isEmpty && arguments != ["--background"] {

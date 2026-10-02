@@ -65,7 +65,7 @@ final class CoreTests {
             expectNil(try OryxLocation(url: root + suffix).revisionID)
         }
         expectEqual(try OryxLocation(url: root + "/v1/2").revisionID, "v1")
-        for url in ["http://configure.zsa.io/moonlander/layouts/x", "https://evil.test/moonlander/layouts/x", "https://configure.zsa.io/voyager/layouts/x", "https://user@configure.zsa.io/moonlander/layouts/x"] {
+        for url in ["http://configure.zsa.io/moonlander/layouts/x", "https://evil.test/moonlander/layouts/x", "https://configure.zsa.io/unknown/layouts/x", "https://user@configure.zsa.io/moonlander/layouts/x"] {
             expectThrows(try OryxLocation(url: url), url)
         }
         for serial in ["abc", "abc/", "a/../b", "../bad", "abc/latest", "a/b/c"] { expectThrows(try LayoutIdentity(serial: serial), serial) }
@@ -113,19 +113,77 @@ final class CoreTests {
         session.setLayer(0); expectFalse(session.shouldShowOverlay)
     }
     func testGeometryCovers72UniquePositionsAndThumbsFit() throws {
-        let keys = try MoonlanderGeometry.load()
-        expectEqual(Set(keys.map { "\($0.row),\($0.column)" }).count, 72)
+        let geometry = try KeyboardGeometry.load()
+        let keys = geometry.keys
+        expectEqual(Set(keys.map { "\($0.row ?? -1),\($0.column ?? -1)" }).count, 72)
         expectEqual(keys[32].row, 5); expectEqual(keys[32].column, 3)
         expectEqual(keys[68].row, 11); expectEqual(keys[68].column, 3)
         expectEqual(keys[32].rotation, 30); expectEqual(keys[68].rotation, -30)
         for key in keys {
             for (x, y) in [(key.x, key.y), (key.x + key.width, key.y), (key.x, key.y + key.height), (key.x + key.width, key.y + key.height)] {
                 let point = key.transformed(x: x, y: y)
-                expectGreaterThanOrEqual(point.x, 0); expectLessThanOrEqual(point.x, MoonlanderGeometry.width)
-                expectGreaterThanOrEqual(point.y, 0); expectLessThanOrEqual(point.y, MoonlanderGeometry.height)
+                expectGreaterThanOrEqual(point.x, 0); expectLessThanOrEqual(point.x, geometry.width)
+                expectGreaterThanOrEqual(point.y, 0); expectLessThanOrEqual(point.y, geometry.height)
             }
         }
     }
+    func testKeyboardModelsKeepNamesURLsAndIdentitiesDistinct() throws {
+        let expected: [(KeyboardModel, String, Int, Int)] = [
+            (.moonlander, "Moonlander", 72, 0x1969), (.voyager, "Voyager", 52, 0x1977), (.ergodoxEZ, "ErgoDox EZ", 76, 0x4974)
+        ]
+        var identities: Set<LayoutIdentity> = []
+        for (keyboard, name, count, product) in expected {
+            expectEqual(keyboard.displayName, name)
+            expectEqual(keyboard.keyCount, count)
+            expectEqual(KeyboardModel.detect(productID: product), keyboard)
+            expectEqual(KeyboardModel.detect(productID: 0, productName: name), keyboard)
+            let identity = try LayoutIdentity(layoutID: "shared-layout", revisionID: "shared-revision", keyboard: keyboard)
+            identities.insert(identity)
+            let location = try OryxLocation(url: identity.url.absoluteString)
+            expectEqual(location.keyboard, keyboard)
+            expectEqual(location.revisionID, identity.revisionID)
+            expectTrue(identity.cacheKey.hasPrefix(keyboard.rawValue + "-"))
+            let snapshot = try keyboardFixture(keyboard)
+            expectEqual(snapshot.keyboardName, name)
+            expectEqual(LabelResolver.prepare(snapshot)[0]?.keyboard, keyboard)
+            let roundTrip = try JSONDecoder().decode(LayoutSnapshot.self, from: JSONEncoder().encode(snapshot)).validated()
+            expectEqual(roundTrip, snapshot)
+            let response = try JSONEncoder().encode(JSONValue.object(["data": .object(["layout": .object(["revision": snapshot.source])])]))
+            expectEqual(try OryxClient.decodeResponse(response, keyboard: keyboard, layoutID: snapshot.layoutID, revisionID: snapshot.revisionID).keyboard, keyboard)
+        }
+        expectEqual(identities.count, 3)
+        expectNil(KeyboardModel.detect(productID: 0x4975)) // Planck EZ is not a supported geometry.
+        expectNil(KeyboardModel.detect(productID: 0, productName: "Unknown keyboard"))
+        let legacy = Data(#"{"layoutID":"old-layout","revisionID":"old-revision"}"#.utf8)
+        let identity = try JSONDecoder().decode(LayoutIdentity.self, from: legacy)
+        expectEqual(identity.keyboard, .moonlander)
+        expectEqual(identity.cacheKey, "moonlander-old-layout-old-revision-v1")
+        let voyager = try keyboardFixture(.voyager)
+        let ergodox = try keyboardFixture(.ergodoxEZ)
+        var session = LiveSession(); session.connect(identity: voyager.identity)
+        expectFalse(session.accept(ergodox, for: try require(session.lease)))
+        expectThrows(try voyager.validated(expected: ergodox.identity))
+        var invalid = try JSONSerialization.jsonObject(with: JSONEncoder().encode(voyager)) as! [String: Any]
+        invalid["geometry"] = "unsupported-keyboard"
+        expectThrows(try JSONDecoder().decode(LayoutSnapshot.self, from: JSONSerialization.data(withJSONObject: invalid)))
+    }
+
+    func testEveryKeyboardGeometryFitsItsCanvas() throws {
+        for model in KeyboardModel.allCases {
+            let geometry = try KeyboardGeometry.load(for: model)
+            expectEqual(geometry.keyboard, model)
+            expectEqual(geometry.keys.count, model.keyCount)
+            expectEqual(geometry.keys.map(\.index), Array(0..<model.keyCount))
+            for key in geometry.keys {
+                for (x, y) in [(key.x, key.y), (key.x + key.width, key.y), (key.x, key.y + key.height), (key.x + key.width, key.y + key.height)] {
+                    let point = key.transformed(x: x, y: y)
+                    expectGreaterThanOrEqual(point.x, 0); expectLessThanOrEqual(point.x, geometry.width)
+                    expectGreaterThanOrEqual(point.y, 0); expectLessThanOrEqual(point.y, geometry.height)
+                }
+            }
+        }
+    }
+
     func testRemoteRevisionMismatchAndMalformedGeometryAreRejected() throws {
         let snapshot = try LayoutSnapshot.bundled()
         let response: JSONValue = .object(["data": .object(["layout": .object(["title": .string(snapshot.title), "revision": snapshot.source])])])
@@ -141,7 +199,7 @@ private actor CountingClient: LayoutFetching {
     var count = 0
     let snapshot: LayoutSnapshot
     init(_ snapshot: LayoutSnapshot) { self.snapshot = snapshot }
-    func fetch(layoutID: String, revisionID: String) async throws -> LayoutSnapshot { count += 1; return snapshot }
+    func fetch(keyboard: KeyboardModel, layoutID: String, revisionID: String) async throws -> LayoutSnapshot { count += 1; return snapshot }
 }
 
 final class RepositoryTests {
@@ -164,5 +222,53 @@ final class RepositoryTests {
         try LayoutRepository.export(snapshot, to: export)
         let imported = try await next.importSnapshot(from: export)
         expectEqual(imported, snapshot)
+    }
+}
+
+private func keyboardFixture(_ keyboard: KeyboardModel) throws -> LayoutSnapshot {
+    let keys: [JSONValue] = (0..<keyboard.keyCount).map { index in
+        .object(["tap": .object(["code": .string("KC_A")]), "customLabel": .string("\(index)")])
+    }
+    return try LayoutSnapshot(layoutID: "shared-layout", title: keyboard.displayName, revisionID: "shared-revision",
+                              source: .object(["hashId": .string("shared-revision"), "layers": .array([
+                                .object(["position": .number(0), "title": .string("Typing"), "keys": .array(keys)]),
+                                .object(["position": .number(1), "title": .string("Test layer"), "keys": .array(keys)])
+                              ])]), keyboard: keyboard).validated()
+}
+
+private actor ModelClient: LayoutFetching {
+    let snapshots: [KeyboardModel: LayoutSnapshot]
+    private(set) var requested: [KeyboardModel] = []
+    init(snapshots: [KeyboardModel: LayoutSnapshot]) { self.snapshots = snapshots }
+    func fetch(keyboard: KeyboardModel, layoutID: String, revisionID: String) async throws -> LayoutSnapshot {
+        requested.append(keyboard)
+        guard let snapshot = snapshots[keyboard] else { throw KeyfinderError.service("Missing test fixture") }
+        return snapshot
+    }
+}
+
+extension RepositoryTests {
+    func testCachesAndRefreshesAreScopedToKeyboardModels() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let snapshots = try Dictionary(uniqueKeysWithValues: KeyboardModel.allCases.map { ($0, try keyboardFixture($0)) })
+        let client = ModelClient(snapshots: snapshots)
+        let repository = LayoutRepository(directory: directory, client: client, bundled: nil)
+        for model in KeyboardModel.allCases {
+            let snapshot = snapshots[model]!
+            expectEqual(try await repository.installed(snapshot.identity), snapshot)
+            expectEqual(try await repository.refresh(OryxLocation(url: snapshot.identity.url.absoluteString)), snapshot)
+        }
+        for model in KeyboardModel.allCases {
+            expectEqual(await repository.cached(snapshots[model]!.identity), snapshots[model])
+        }
+        let requests = await client.requested
+        expectEqual(requests, [.moonlander, .moonlander, .voyager, .voyager, .ergodoxEZ, .ergodoxEZ])
+        let wrongClient = ModelClient(snapshots: [.voyager: snapshots[.ergodoxEZ]!])
+        let other = LayoutRepository(directory: directory.appendingPathComponent("invalid"), client: wrongClient, bundled: nil)
+        do {
+            _ = try await other.refresh(OryxLocation(url: snapshots[.voyager]!.identity.url.absoluteString))
+            expectTrue(false, "A response for another model must be rejected.")
+        } catch { expectNil(await other.cached(snapshots[.ergodoxEZ]!.identity)) }
     }
 }

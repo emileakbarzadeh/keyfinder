@@ -9,7 +9,9 @@ import ServiceManagement
     @Published private(set) var previewLayers: [Int: PresentedLayer] = [:]
     @Published var previewLayerIndex = 1
     @Published var selectedKeyIndex: Int?
-    @Published private(set) var status = "Waiting for your Moonlander"
+    @Published private(set) var status = "Waiting for your keyboard"
+    @Published private(set) var connectedKeyboardName: String?
+    @Published private(set) var connectedKeyboardModel: KeyboardModel?
     @Published private(set) var connectionDetail = "Connect your keyboard when you’re ready. Preview works offline."
     @Published private(set) var notice: String?
     @Published private(set) var isPaused = false
@@ -22,7 +24,7 @@ import ServiceManagement
     @Published private(set) var identityVerified = false
     @Published private(set) var protocolVersion: Int?
     @Published private(set) var launchAtLogin = false
-    let geometry: [KeyGeometry]
+    @Published private(set) var geometry: KeyboardGeometry
     let overlay: OverlayController
     private let monitor: any KeyboardMonitoring
     private let repository: LayoutRepository
@@ -39,7 +41,7 @@ import ServiceManagement
     var onMenuBarVisibilityChange: ((Bool) -> Void)?
     var onAppearanceChange: ((AppAppearance) -> Void)?
 
-    init(geometry: [KeyGeometry], monitor: any KeyboardMonitoring, repository: LayoutRepository,
+    init(geometry: KeyboardGeometry, monitor: any KeyboardMonitoring, repository: LayoutRepository,
          defaults: UserDefaults = .standard, overlay: OverlayController) {
         self.geometry = geometry; self.monitor = monitor; self.repository = repository; self.defaults = defaults; self.overlay = overlay
         preferences = Preferences.load(from: defaults)
@@ -59,7 +61,8 @@ import ServiceManagement
 
     func start(observeSleep: Bool = true) {
         monitor.start()
-        if let serial = defaults.string(forKey: "previewIdentity"), let identity = try? LayoutIdentity(serial: serial) {
+        let previewKeyboard = defaults.string(forKey: "previewKeyboard").flatMap(KeyboardModel.init(rawValue:)) ?? .moonlander
+        if let serial = defaults.string(forKey: "previewIdentity"), let identity = try? LayoutIdentity(serial: serial, keyboard: previewKeyboard) {
             let generation = previewGeneration
             previewTask = Task { [weak self, repository] in
                 guard let snapshot = await repository.cached(identity), !Task.isCancelled,
@@ -95,16 +98,22 @@ import ServiceManagement
         switch event {
         case .connected(let device):
             installedTask?.cancel()
-            let identity = try? LayoutIdentity(serial: device.serial)
+            guard let keyboard = device.model else {
+                receive(.disconnected)
+                receive(.problem("This keyboard model is not supported.", blocking: true))
+                return
+            }
+            let identity = try? LayoutIdentity(serial: device.serial, keyboard: keyboard)
             session.connect(identity: identity)
             connected = true; identityVerified = identity != nil
+            connectedKeyboardName = device.displayName; connectedKeyboardModel = keyboard
             installedRevision = identity?.revisionID; currentLayer = nil; protocolVersion = nil
             liveLayers = [:]; blockingProblem = nil; layoutFailure = nil
-            status = "Connecting to Moonlander"
+            status = "Connecting to \(device.displayName)"
             connectionDetail = identity.map { "Layout \($0.layoutID) · revision \($0.revisionID)" } ?? "Reading the installed Oryx revision…"
             loadInstalled()
         case .identity(let identity):
-            guard session.connected else { return }
+            guard session.connected, identity.keyboard == connectedKeyboardModel else { return }
             let changed = session.identity != identity
             session.identify(identity)
             identityVerified = true; installedRevision = identity.revisionID
@@ -120,8 +129,9 @@ import ServiceManagement
             installedTask?.cancel(); installedTask = nil
             session.disconnect(); liveLayers = [:]
             connected = false; identityVerified = false; installedRevision = nil; currentLayer = nil; protocolVersion = nil
+            connectedKeyboardName = nil; connectedKeyboardModel = nil
             blockingProblem = nil; layoutFailure = nil
-            status = isPaused ? "Keyfinder is paused" : "Waiting for your Moonlander"
+            status = isPaused ? "Keyfinder is paused" : "Waiting for your keyboard"
             connectionDetail = isPaused ? "USB monitoring is stopped until you resume." : "Connect your keyboard when you’re ready. Preview works offline."
         case .problem(let message, let blocking):
             if blocking { blockingProblem = message }
@@ -216,7 +226,13 @@ import ServiceManagement
                     let snapshot = try await repository.refresh(location)
                     guard !Task.isCancelled, let self, self.previewGeneration == generation else { return }
                     self.setPreview(snapshot)
-                    self.notice = self.session.identity.map { $0 == snapshot.identity ? "The preview matches your installed revision." : "Preview updated. The live overlay will use this revision after it is flashed to your keyboard." } ?? "Preview updated and saved for offline use."
+                    self.notice = self.session.identity.map { identity in
+                        if identity == snapshot.identity { return "The preview matches your installed revision." }
+                        if identity.keyboard != snapshot.keyboard {
+                            return "\(snapshot.keyboardName) preview updated. The live overlay still follows your \(identity.keyboard.displayName)."
+                        }
+                        return "Preview updated. The live overlay will use this revision after it is flashed to your keyboard."
+                    } ?? "Preview updated and saved for offline use."
                     self.isRefreshing = false
                     // A previously missing installed revision may now have been cached.
                     if self.session.identity == snapshot.identity { self.loadInstalled() }
@@ -229,8 +245,14 @@ import ServiceManagement
     }
 
     private func setPreview(_ snapshot: LayoutSnapshot) {
+        guard let geometry = try? KeyboardGeometry.load(for: snapshot.keyboard) else {
+            notice = "Could not load the \(snapshot.keyboardName) keyboard drawing."
+            return
+        }
+        self.geometry = geometry
         previewSnapshot = snapshot; previewLayers = LabelResolver.prepare(snapshot)
         defaults.set("\(snapshot.layoutID)/\(snapshot.revisionID)", forKey: "previewIdentity")
+        defaults.set(snapshot.keyboard.rawValue, forKey: "previewKeyboard")
         if previewLayers[previewLayerIndex] == nil { previewLayerIndex = snapshot.layers.first(where: { $0.position > 0 })?.position ?? 0 }
         selectedKeyIndex = nil
         if isPreviewingOverlay || isArranging { synchronizeOverlay() }
@@ -270,7 +292,7 @@ import ServiceManagement
     }
 
     func usePreviewForUnidentifiedKeyboard() {
-        guard session.connected, !identityVerified, let snapshot = previewSnapshot, !snapshot.isDemo else { return }
+        guard session.connected, !identityVerified, let snapshot = previewSnapshot, !snapshot.isDemo, snapshot.keyboard == connectedKeyboardModel else { return }
         session.identify(snapshot.identity); installedRevision = snapshot.revisionID
         loadInstalled()
     }
@@ -280,7 +302,7 @@ import ServiceManagement
         isPreviewingOverlay = false; isArranging = false
         if isPaused { monitor.stop(); overlay.hide() }
         else {
-            status = "Waiting for your Moonlander"
+            status = "Waiting for your keyboard"
             connectionDetail = "Connect your keyboard when you’re ready. Preview works offline."
             monitor.start()
         }
@@ -308,12 +330,12 @@ import ServiceManagement
         if isPreviewingOverlay || isArranging {
             overlay.show(selectedPreview, preferences: preferences, preview: true, arranging: isArranging)
         } else if !isPaused, session.shouldShowOverlay {
-            if let blockingProblem { overlay.show(nil, message: blockingProblem, preferences: preferences) }
-            else if let layoutFailure { overlay.show(nil, message: layoutFailure, preferences: preferences) }
+            if let blockingProblem { overlay.show(nil, message: blockingProblem, preferences: preferences, keyboard: connectedKeyboardModel) }
+            else if let layoutFailure { overlay.show(nil, message: layoutFailure, preferences: preferences, keyboard: connectedKeyboardModel) }
             else if let layer = session.layer, let prepared = liveLayers[layer] { overlay.show(prepared, preferences: preferences, unverified: !identityVerified) }
             else {
                 let text = session.snapshot == nil ? "Loading the installed layout. If it cannot be loaded, open Keyfinder settings to retry or import a snapshot." : "This layer is missing from the installed layout. Open Keyfinder settings to check the revision."
-                overlay.show(nil, message: text, preferences: preferences)
+                overlay.show(nil, message: text, preferences: preferences, keyboard: connectedKeyboardModel)
             }
         } else { overlay.hide() }
     }

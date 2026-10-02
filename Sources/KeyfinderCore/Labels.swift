@@ -17,6 +17,8 @@ public struct PresentedLayer: Equatable, Sendable {
     public let position: Int
     public let name: String
     public let layoutTitle: String
+    public let keyboard: KeyboardModel
+    public var keyboardName: String { keyboard.displayName }
     public let revision: String
     public let keys: [PresentedKey]
     public var inheritedCount: Int { keys.filter { $0.appearance == .inherited || $0.appearance == .ambiguous }.count }
@@ -52,7 +54,7 @@ public enum LabelResolver {
                 let details = candidates.map { "Layer \($0.0): \($0.1.detail)" }.joined(separator: "\n\n")
                 return PresentedKey(label: short, secondary: "inherited", detail: "Depends on which lower layers are active.\n\n" + details, appearance: .ambiguous, color: key.color)
             }
-            return (layer.position, PresentedLayer(position: layer.position, name: layer.displayName, layoutTitle: snapshot.title, revision: snapshot.revisionID, keys: keys))
+            return (layer.position, PresentedLayer(position: layer.position, name: layer.displayName, layoutTitle: snapshot.title, keyboard: snapshot.keyboard, revision: snapshot.revisionID, keys: keys))
         })
     }
 

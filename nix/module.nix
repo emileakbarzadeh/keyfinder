@@ -10,7 +10,7 @@ let
 in
 {
   options.services.keyfinder = {
-    enable = lib.mkEnableOption "Keyfinder, the Moonlander layer overlay for macOS 26+";
+    enable = lib.mkEnableOption "Keyfinder, the ZSA keyboard layer overlay for macOS 26+";
     package = lib.mkOption {
       type = lib.types.package;
       default = self.packages.${pkgs.stdenv.hostPlatform.system}.keyfinder;

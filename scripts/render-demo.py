@@ -44,7 +44,7 @@ def scene(layer, previews, typeface, appearance):
     accent = {0: colors["foreground"], 1: ORANGE, 2: RED}[layer]
 
     draw.text((44, 41), "KEYFINDER", font=font(typeface, 27, True), fill=colors["foreground"], anchor="lm")
-    draw.text((44, 77), "Moonlander layer overlay", font=font(typeface, 19), fill=colors["muted"], anchor="lm")
+    draw.text((44, 77), "Keyboard layer overlay", font=font(typeface, 19), fill=colors["muted"], anchor="lm")
 
     cursor = 648
     for index, title, width in [(0, "0 · Typing", 144), (1, "1 · Symbols", 160), (2, "2 · Navigation", 184)]:

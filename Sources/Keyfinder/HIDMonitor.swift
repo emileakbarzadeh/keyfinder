@@ -6,6 +6,11 @@ struct ConnectedKeyboard: Equatable {
     let name: String
     let serial: String
     let productID: Int
+    var model: KeyboardModel? { KeyboardModel.detect(productID: productID, productName: name) }
+    var displayName: String {
+        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return name.isEmpty ? model?.displayName ?? "Keyboard" : name
+    }
 }
 
 enum KeyboardEvent {
@@ -38,13 +43,10 @@ enum KeyboardEvent {
         guard manager == nil else { return }
         let manager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
         self.manager = manager
-        let matches = OryxProtocol.productIDs.map { product in
-            [kIOHIDVendorIDKey: OryxProtocol.vendorID,
-             kIOHIDProductIDKey: product,
-             kIOHIDDeviceUsagePageKey: OryxProtocol.usagePage,
-             kIOHIDDeviceUsageKey: OryxProtocol.usage]
-        }
-        IOHIDManagerSetDeviceMatchingMultiple(manager, matches as CFArray)
+        let match = [kIOHIDVendorIDKey: OryxProtocol.vendorID,
+                     kIOHIDDeviceUsagePageKey: OryxProtocol.usagePage,
+                     kIOHIDDeviceUsageKey: OryxProtocol.usage]
+        IOHIDManagerSetDeviceMatching(manager, match as CFDictionary)
         let context = Unmanaged.passUnretained(self).toOpaque()
         IOHIDManagerRegisterDeviceMatchingCallback(manager, { context, result, _, device in
             guard let context, result == kIOReturnSuccess else { return }
@@ -77,20 +79,27 @@ enum KeyboardEvent {
     func reconnect() { stop(); start() }
 
     private func attached(_ device: IOHIDDevice) {
-        guard !devices.contains(where: { CFEqual($0, device) }) else { return }
+        guard Self.identity(of: device).model != nil, !devices.contains(where: { CFEqual($0, device) }) else { return }
         devices.append(device)
         if session == nil { connect(device) }
     }
 
+    private static func identity(of device: IOHIDDevice) -> ConnectedKeyboard {
+        ConnectedKeyboard(name: (IOHIDDeviceGetProperty(device, kIOHIDProductKey as CFString) as? String) ?? "",
+                          serial: (IOHIDDeviceGetProperty(device, kIOHIDSerialNumberKey as CFString) as? String) ?? "",
+                          productID: (IOHIDDeviceGetProperty(device, kIOHIDProductIDKey as CFString) as? NSNumber)?.intValue ?? 0)
+    }
+
     private func connect(_ device: IOHIDDevice) {
+        let deviceIdentity = Self.identity(of: device)
+        guard let keyboard = deviceIdentity.model else { return }
         let result = IOHIDDeviceOpen(device, IOOptionBits(kIOHIDOptionsTypeNone))
         guard result == kIOReturnSuccess else { reportOpenError(result); return }
         receivedLayer = false; supported = true
-        let session = HIDSession(device: device, monitor: self)
+        let session = HIDSession(device: device, keyboard: keyboard, monitor: self)
         self.session = session
-        let serial = (IOHIDDeviceGetProperty(device, kIOHIDSerialNumberKey as CFString) as? String) ?? ""
-        let product = (IOHIDDeviceGetProperty(device, kIOHIDProductIDKey as CFString) as? NSNumber)?.intValue ?? 0
-        onEvent?(.connected(ConnectedKeyboard(name: "Moonlander", serial: serial, productID: product)))
+        let serial = deviceIdentity.serial
+        onEvent?(.connected(deviceIdentity))
         IOHIDDeviceRegisterInputReportCallback(device, session.buffer, session.capacity, { context, result, _, _, _, report, length in
             // Stock Oryx also sends keydown/up reports. Drop them before allocating,
             // publishing state, resolving labels, or scheduling any work.
@@ -105,11 +114,11 @@ enum KeyboardEvent {
         IOHIDDeviceScheduleWithRunLoop(device, CFRunLoopGetMain(), CFRunLoopMode.commonModes.rawValue)
         // These requests do not change the layout, layer, lights, or firmware.
         _ = send(0xFE)
-        if (try? LayoutIdentity(serial: serial)) == nil { _ = send(0x00) }
+        if (try? LayoutIdentity(serial: serial, keyboard: keyboard)) == nil { _ = send(0x00) }
         guard send(0x01) else { return }
         let timeout = DispatchWorkItem { [weak self, weak session] in
             guard let self, let session, self.session === session, !self.receivedLayer else { return }
-            self.onEvent?(.problem("The Moonlander did not report its layer. Try Retry connection. If this persists, close other live-training sessions and use a current Oryx firmware build.", blocking: true))
+            self.onEvent?(.problem("The keyboard did not report its layer. Try Retry connection. If this persists, close other live-training sessions and use a current Oryx firmware build.", blocking: true))
             self.deadline = nil
         }
         deadline = timeout
@@ -123,7 +132,7 @@ enum KeyboardEvent {
             IOHIDDeviceSetReport(session.device, kIOHIDReportTypeOutput, 0, buffer.baseAddress!, buffer.count)
         }
         if result != kIOReturnSuccess, command == 0x01 {
-            onEvent?(.problem("Could not subscribe to Moonlander layer changes (USB error \(result)). Try Retry connection.", blocking: true))
+            onEvent?(.problem("Could not subscribe to keyboard layer changes (USB error \(result)). Try Retry connection.", blocking: true))
         }
         return result == kIOReturnSuccess
     }
@@ -137,7 +146,7 @@ enum KeyboardEvent {
             deadline?.cancel(); deadline = nil
             onEvent?(.layer(layer))
         case .firmware(let serial):
-            if let identity = try? LayoutIdentity(serial: serial) { onEvent?(.identity(identity)) }
+            if let identity = try? LayoutIdentity(serial: serial, keyboard: source.keyboard) { onEvent?(.identity(identity)) }
         case .protocolVersion(let version):
             onEvent?(.protocolVersion(version))
             if !(1...5).contains(version) {
@@ -151,7 +160,7 @@ enum KeyboardEvent {
         case .error(let code):
             // Older firmware may reject the protocol-version query while still
             // supporting ordinary layer reports. The one-shot handshake checks it.
-            if code != 0xFF { onEvent?(.problem("The Moonlander reported a pairing error (\(code)). Retry the connection.", blocking: true)) }
+            if code != 0xFF { onEvent?(.problem("The keyboard reported a pairing error (\(code)). Retry the connection.", blocking: true)) }
         }
     }
 
@@ -167,19 +176,20 @@ enum KeyboardEvent {
     private func reportOpenError(_ result: IOReturn) {
         let detail = result == kIOReturnNotPermitted
             ? "macOS denied USB access. Enable Keyfinder in System Settings → Privacy & Security → Input Monitoring if it is listed, then retry."
-            : "Could not open the Moonlander USB interface (\(result)). Check its connection and try Retry connection."
+            : "Could not open the keyboard’s USB interface (\(result)). Check its connection and try Retry connection."
         onEvent?(.problem(detail, blocking: true))
     }
 }
 
 @MainActor private final class HIDSession {
     let device: IOHIDDevice
+    let keyboard: KeyboardModel
     weak var monitor: HIDMonitor?
     let capacity = 64
     let buffer: UnsafeMutablePointer<UInt8>
     private var closed = false
-    init(device: IOHIDDevice, monitor: HIDMonitor) {
-        self.device = device; self.monitor = monitor
+    init(device: IOHIDDevice, keyboard: KeyboardModel, monitor: HIDMonitor) {
+        self.device = device; self.keyboard = keyboard; self.monitor = monitor
         buffer = .allocate(capacity: capacity); buffer.initialize(repeating: 0, count: capacity)
     }
     func close() {

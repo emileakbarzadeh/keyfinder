@@ -1,15 +1,15 @@
 # Architecture
 
-Keyfinder is a native macOS 26+ overlay for one connected ZSA Moonlander. It shows the keyboard's highest active layer, hides on layer 0, and loads the exact Oryx revision installed on the device. The Swift core is independent of the desktop adapter to leave room for a future Linux port.
+Keyfinder is a native macOS 26+ overlay for one connected ZSA Moonlander, Voyager, or ErgoDox EZ. It shows the keyboard's highest active layer, hides on layer 0, and loads the exact Oryx revision installed on the device. The Swift core is independent of the desktop adapter to leave room for a future Linux port.
 
 ## Components
 
 | Component | Responsibility |
 | --- | --- |
 | `KeyfinderCore` | Validate layouts and device identities, decode Oryx reports, resolve key labels, and cache revision snapshots. |
-| `HIDMonitor` | Discover Moonlander revisions A and B, pair through the raw HID interface, and deliver device events on the main run loop. |
+| `HIDMonitor` | Identify supported ZSA models by USB product ID or product name, pair through the raw HID interface, and deliver device events on the main run loop. |
 | `AppModel` | Coordinate connection state, exact-revision retrieval, preview selection, and persisted preferences. |
-| `OverlayController` / `KeyboardView` | Present a nonactivating, click-through AppKit panel using the 72-key Moonlander geometry. |
+| `OverlayController` / `KeyboardView` | Present a nonactivating, click-through AppKit panel using the active model’s geometry. |
 | `AppDelegate` / `SettingsView` | Manage the optional menu bar icon, Settings, explicit reopening, and login behavior. |
 | Nix expressions | Pin the compiler and SDK; build, check, sign, and package the app; configure the nix-darwin LaunchAgent. |
 
@@ -30,6 +30,12 @@ Oryx firmware exposes a `layoutID/revisionID` identity. The live overlay uses th
 
 An unavailable revision never falls back to another layout's labels. Cached snapshots work offline. When firmware cannot identify its layout, a user may explicitly associate a real preview revision; the overlay marks that association as unverified.
 
+## Keyboard models
+
+`KeyboardModel` contains Oryx model identifiers and display names. The model is part of every layout identity, Oryx request, cache key, and saved preview selection. Older identities without a model continue to mean Moonlander. Existing Moonlander snapshot files and cache paths remain compatible.
+
+`KeyboardGeometry` loads the 72-key Moonlander, 52-key Voyager, and 76-key ErgoDox EZ schematics once and reuses them. Each view holds its own geometry so inspecting another model does not change the live overlay. USB discovery matches ZSA’s raw HID interface and accepts only recognized models before pairing.
+
 ## Offline demo and first connection
 
 `Resources/DemoLayout.json` is a synthetic fixture with three layers and 72 positions per layer. Its `keyfinder-demo/v1` identity is local example data, not a published Oryx layout. The app does not offer an Oryx link or permit an unverified keyboard association for this demo.
@@ -44,7 +50,7 @@ The resolver compares action semantics, including tap/hold gestures and macros. 
 
 ## Window lifecycle and performance
 
-`Theme.swift` defines two neutral palettes in sRGB: charcoal `#111315` for dark mode and parchment `#F4F3EE` for light mode, with bright orange `#F77F00` and red `#D62828` accents. Orange controls use charcoal text; red unverified-revision badges use parchment text. Optional Oryx colors tint the keycaps while labels retain the theme’s text colors.
+`Theme.swift` defines two neutral palettes in sRGB: charcoal `#111315` for dark mode and parchment `#F4F3EE` for light mode, with bright orange `#F77F00` and red `#D62828` accents. Orange controls use charcoal text. Optional Oryx colors tint the keycaps while labels retain the theme’s text colors. The overlay draws its keys and headings on a transparent background, without a panel shadow, status badge, or footer. Unverified revisions are identified in the subtitle.
 
 The persisted appearance preference defaults to System, which inherits macOS appearance. Light and Dark override window appearance explicitly. Dynamic colors update SwiftUI, and `viewDidChangeEffectiveAppearance` invalidates the static AppKit keyboard when needed. Theme changes use native appearance propagation; they add no observers, polling, or timers. Older preferences retain their existing values and default to System.
 
@@ -58,12 +64,12 @@ There are no polling loops, repeating timers, scheduled Oryx refreshes, or conti
 
 The [verification record](VERIFICATION.md) distinguishes core tests, simulated AppKit integration, packaging checks, measured performance, and physical hardware acceptance. Contributions should preserve those distinctions.
 
-Future work includes physical acceptance across Moonlander revisions, Linux desktop integration, configurable hidden layers, and optional firmware support for full active/default-layer bitmasks. Linux packaging and exact resolution of ambiguous stacked layers are not currently implemented.
+Future work includes physical acceptance across all three keyboard models, Linux desktop integration, configurable hidden layers, and optional firmware support for full active/default-layer bitmasks. Linux packaging and exact resolution of ambiguous stacked layers are not currently implemented.
 
 ## Protocol references
 
 - [ZSA Oryx module](https://github.com/zsa/qmk_modules/tree/main/oryx): pairing, layer updates, and raw HID reports.
-- [ZSA device identifiers](https://github.com/zsa/zapp/blob/a1be75837323001ad1ae8e5787d88cd33f2ccc46/zapp-core/src/device/ids.rs): Moonlander revisions A and B.
+- [ZSA device identifiers](https://github.com/zsa/zapp/blob/a1be75837323001ad1ae8e5787d88cd33f2ccc46/zapp-core/src/device/ids.rs): USB model identification.
 - [ZSA installed-layout detection](https://github.com/zsa/zapp/blob/a1be75837323001ad1ae8e5787d88cd33f2ccc46/zapp/src/main.rs): firmware identity parsing.
 - [Moonlander geometry](https://github.com/zsa/qmk_firmware/blob/93b2b9ec3368f86c5eb5a2e3f934049f8daef885/keyboards/zsa/moonlander/reva/keyboard.json): physical key positions.
 - [Oryx with custom QMK](https://github.com/zsa/oryx-with-custom-qmk): a possible path for additional firmware state reporting.

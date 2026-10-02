@@ -7,7 +7,7 @@ import KeyfinderCore
     private var model: AppModel?
     private(set) var statusItem: NSStatusItem?
     private(set) var settingsWindow: NSWindow?
-    private let statusLine = NSMenuItem(title: "Waiting for Moonlander", action: nil, keyEquivalent: "")
+    private let statusLine = NSMenuItem(title: "Waiting for your keyboard", action: nil, keyEquivalent: "")
     private let pauseItem = NSMenuItem(title: "Pause", action: #selector(togglePause), keyEquivalent: "")
     private let backgroundLaunch: Bool
     private let defaults: UserDefaults
@@ -20,7 +20,7 @@ import KeyfinderCore
     func applicationDidFinishLaunching(_ notification: Notification) {
         do {
             if model == nil {
-                let geometry = try MoonlanderGeometry.load()
+                let geometry = try KeyboardGeometry.load()
                 let overlay = OverlayController(geometry: geometry)
                 let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
                     .appendingPathComponent("Keyfinder/Layouts", isDirectory: true)

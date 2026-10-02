@@ -7,7 +7,7 @@ import KeyfinderCore
     private(set) static var smokePassed = false
     static func renderPreviews(to directory: URL) throws {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let geometry = try MoonlanderGeometry.load()
+        let geometry = try KeyboardGeometry.load()
         let layers = LabelResolver.prepare(try LayoutSnapshot.bundled())
         for mode in [AppAppearance.dark, .light] {
             let suffix = mode == .light ? "-light" : ""
@@ -15,17 +15,28 @@ import KeyfinderCore
                 let view = KeyboardView(geometry: geometry)
                 view.appearance = mode.appKit
                 view.preview = true; view.presentedLayer = layers[index]
-                view.frame = NSRect(x: 0, y: 0, width: 1100, height: KeyboardView.height(forWidth: 1100))
+                view.frame = NSRect(x: 0, y: 0, width: 1100, height: KeyboardView.height(forWidth: 1100, geometry: geometry))
                 try capture(view, to: directory.appendingPathComponent("layer-\(index)\(suffix).png"))
             }
             let neutral = KeyboardView(geometry: geometry)
             neutral.appearance = mode.appKit
             neutral.presentedLayer = layers[1]; neutral.useKeyColors = false
             neutral.unverified = true; neutral.selectedIndex = 1
-            neutral.frame = NSRect(x: 0, y: 0, width: 1100, height: KeyboardView.height(forWidth: 1100))
+            neutral.frame = NSRect(x: 0, y: 0, width: 1100, height: KeyboardView.height(forWidth: 1100, geometry: geometry))
             try capture(neutral, to: directory.appendingPathComponent("unverified-without-key-colors\(suffix).png"))
         }
-        print("Rendered \(layers.count) layers in light and dark mode to \(directory.path)")
+        for keyboard in KeyboardModel.allCases where keyboard != .moonlander {
+            let geometry = try KeyboardGeometry.load(for: keyboard)
+            let sample = LabelResolver.prepare(try keyboardFixture(keyboard))[1]
+            for mode in [AppAppearance.dark, .light] {
+                let view = KeyboardView(geometry: geometry)
+                view.appearance = mode.appKit; view.preview = true; view.presentedLayer = sample
+                view.frame = NSRect(x: 0, y: 0, width: 1100, height: KeyboardView.height(forWidth: 1100, geometry: geometry))
+                let suffix = mode == .light ? "-light" : ""
+                try capture(view, to: directory.appendingPathComponent("\(keyboard.rawValue)\(suffix).png"))
+            }
+        }
+        print("Rendered demo layers and keyboard models in light and dark mode to \(directory.path)")
     }
 
     static func capture(_ view: NSView, to url: URL) throws {
@@ -60,6 +71,13 @@ import KeyfinderCore
     }
 
     static func runSmokeTest(reportURL: URL) {
+        // Keep an explicit failure record if macOS stops the GUI process before
+        // the asynchronous checks finish (for example in a restricted session).
+        try? FileManager.default.createDirectory(at: reportURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let unfinished: [String: Any] = ["passed": false, "checks": [:], "error": "GUI checks did not finish.", "hardware_tested": false]
+        if let data = try? JSONSerialization.data(withJSONObject: unfinished, options: [.prettyPrinted, .sortedKeys]) {
+            try? data.write(to: reportURL, options: .atomic)
+        }
         Task { @MainActor in
             var checks: [String: Bool] = [:]
             var failure: String?
@@ -77,7 +95,7 @@ import KeyfinderCore
             }
             do {
                 try FileManager.default.createDirectory(at: reportURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-                let geometry = try MoonlanderGeometry.load()
+                let geometry = try KeyboardGeometry.load()
                 let snapshot = try LayoutSnapshot.bundled()
                 let monitor = SimulatedKeyboard()
                 let client = ScenarioClient()
@@ -94,11 +112,16 @@ import KeyfinderCore
                 checks["demo_cannot_be_assigned_to_an_unknown_keyboard"] = appModel.installedRevision == nil
                 monitor.emit(.disconnected)
 
+                checks.merge(try await checkKeyboardModels(directory: temporary)) { _, new in new }
+                let progress: [String: Any] = ["passed": false, "checks": checks, "error": "GUI checks did not finish.", "hardware_tested": false]
+                if let data = try? JSONSerialization.data(withJSONObject: progress, options: [.prettyPrinted, .sortedKeys]) {
+                    try? data.write(to: reportURL, options: .atomic)
+                }
+
                 let window = NSWindow(contentRect: NSRect(x: 100, y: 100, width: 1000, height: 820), styleMask: [.titled, .closable], backing: .buffered, defer: false)
                 window.isReleasedWhenClosed = false
                 window.contentView = NSHostingView(rootView: SettingsView(model: appModel))
                 focusWindow = window
-                NSApp.activate(ignoringOtherApps: true); window.makeKeyAndOrderFront(nil)
                 for mode in [AppAppearance.dark, .light] {
                     var preferences = appModel.preferences; preferences.appearance = mode
                     appModel.setPreferences(preferences)
@@ -112,7 +135,9 @@ import KeyfinderCore
                 }
                 var automatic = appModel.preferences; automatic.appearance = .system
                 appModel.setPreferences(automatic)
+                NSApp.activate(ignoringOtherApps: true)
                 window.makeKeyAndOrderFront(nil)
+                try await waitUntil { NSApp.keyWindow === window }
                 let previousKeyWindow = NSApp.keyWindow
                 let foregroundBeforeOverlay = NSWorkspace.shared.frontmostApplication?.processIdentifier
                 checks["focus_test_has_foreground_application"] = foregroundBeforeOverlay != nil
@@ -151,7 +176,7 @@ import KeyfinderCore
                 appModel.togglePause()
                 checks["pause_stops_usb_monitoring"] = !monitor.running && !overlay.panel.isVisible
                 appModel.togglePause()
-                checks["resume_restarts_usb_monitoring"] = monitor.running && appModel.status == "Waiting for your Moonlander"
+                checks["resume_restarts_usb_monitoring"] = monitor.running && appModel.status == "Waiting for your keyboard"
                 let requests = await client.requests
                 checks["no_network_for_bundled_layout_or_idle"] = requests.isEmpty
                 checks["preference_round_trip"] = Preferences.load(from: defaults) == appModel.preferences
@@ -220,7 +245,70 @@ import KeyfinderCore
         }
     }
 
-    private static func checkApplicationLifecycle(geometry: [KeyGeometry], snapshot: LayoutSnapshot, directory: URL) async throws -> [String: Bool] {
+    private static func keyboardFixture(_ keyboard: KeyboardModel) throws -> LayoutSnapshot {
+        let keys: [JSONValue] = (0..<keyboard.keyCount).map { index in
+            .object(["tap": .object(["code": .string("KC_A")]), "customLabel": .string("\(index)")])
+        }
+        return try LayoutSnapshot(layoutID: "model-fixture", title: "\(keyboard.displayName) · key positions", revisionID: "v1",
+                                  source: .object(["hashId": .string("v1"), "layers": .array([
+                                    .object(["position": .number(0), "title": .string("Typing"), "keys": .array(keys)]),
+                                    .object(["position": .number(1), "title": .string("Example"), "keys": .array(keys)])
+                                  ])]), keyboard: keyboard).validated()
+    }
+
+    private static func checkKeyboardModels(directory: URL) async throws -> [String: Bool] {
+        var checks: [String: Bool] = [:]
+        let suiteName = "io.keyfinder.models.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let geometry = try KeyboardGeometry.load()
+        let repository = LayoutRepository(directory: directory.appendingPathComponent("models"), client: ScenarioClient(), bundled: nil)
+        for model in KeyboardModel.allCases { try await repository.save(keyboardFixture(model)) }
+        let monitor = SimulatedKeyboard()
+        let overlay = OverlayController(geometry: geometry)
+        let model = AppModel(geometry: geometry, monitor: monitor, repository: repository, defaults: defaults, overlay: overlay)
+        model.start(observeSleep: false)
+        defer { model.stop() }
+        checks["disconnected_wording_is_keyboard_neutral"] = model.status == "Waiting for your keyboard" && model.connectedKeyboardName == nil
+        let examples: [(KeyboardModel, Int)] = [(.moonlander, 0x1969), (.voyager, 0x1977), (.ergodoxEZ, 0x4974)]
+        for (keyboard, product) in examples {
+            monitor.emit(.connected(ConnectedKeyboard(name: "My \(keyboard.displayName)", serial: "model-fixture/v1", productID: product)))
+            monitor.emit(.layer(1))
+            try await waitUntil { overlay.keyboardView.presentedLayer?.keyboard == keyboard }
+            checks["\(keyboard.rawValue)_live_overlay_uses_its_geometry_and_name"] = overlay.keyboardView.geometry.keyboard == keyboard
+                && overlay.keyboardView.geometry.keys.count == keyboard.keyCount && overlay.keyboardView.presentedLayer?.keyboardName == keyboard.displayName
+            checks["\(keyboard.rawValue)_usb_name_is_preserved"] = model.connectedKeyboardName == "My \(keyboard.displayName)"
+            monitor.emit(.disconnected)
+        }
+        checks["disconnect_clears_previous_keyboard_name"] = model.connectedKeyboardName == nil && model.connectedKeyboardModel == nil
+        monitor.emit(.connected(ConnectedKeyboard(name: "Moonlander", serial: "model-fixture/v1", productID: 0x1969)))
+        monitor.emit(.layer(1))
+        try await waitUntil { overlay.keyboardView.presentedLayer?.keyboard == .moonlander }
+        let imported = directory.appendingPathComponent("voyager-import.json")
+        try LayoutRepository.export(keyboardFixture(.voyager), to: imported)
+        model.importSnapshot(imported)
+        try await waitUntil { !model.isRefreshing && model.previewSnapshot?.keyboard == .voyager }
+        checks["other_model_preview_does_not_change_live_keyboard"] = model.geometry.keyboard == .voyager && overlay.keyboardView.geometry.keyboard == .moonlander
+        model.showOverlayPreview()
+        checks["explicit_preview_uses_preview_model_geometry"] = overlay.keyboardView.geometry.keyboard == .voyager
+        model.endOverlayPreview()
+        checks["closing_preview_restores_connected_model_geometry"] = overlay.keyboardView.geometry.keyboard == .moonlander
+        monitor.emit(.disconnected)
+        monitor.emit(.connected(ConnectedKeyboard(name: "ErgoDox EZ", serial: "", productID: 0x4974)))
+        model.usePreviewForUnidentifiedKeyboard()
+        checks["unidentified_keyboard_rejects_other_model_preview"] = model.installedRevision == nil
+        monitor.emit(.disconnected)
+        let restored = AppModel(geometry: geometry, monitor: SimulatedKeyboard(), repository: repository,
+                                defaults: defaults, overlay: OverlayController(geometry: geometry))
+        restored.start(observeSleep: false)
+        defer { restored.stop() }
+        try await waitUntil { restored.previewSnapshot?.keyboard == .voyager }
+        checks["saved_preview_restores_keyboard_model_and_geometry"] = restored.geometry.keyboard == .voyager
+            && restored.previewOryxURL?.path.hasPrefix("/voyager/") == true
+        return checks
+    }
+
+    private static func checkApplicationLifecycle(geometry: KeyboardGeometry, snapshot: LayoutSnapshot, directory: URL) async throws -> [String: Bool] {
         var checks: [String: Bool] = [:]
         let suiteName = "io.keyfinder.lifecycle.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
@@ -423,7 +511,7 @@ private actor ScenarioClient: LayoutFetching {
         if let blocked { continuation?.resume(returning: blocked) }
         continuation = nil; blocked = nil
     }
-    func fetch(layoutID: String, revisionID: String) async throws -> LayoutSnapshot {
+    func fetch(keyboard: KeyboardModel, layoutID: String, revisionID: String) async throws -> LayoutSnapshot {
         requests.append(revisionID)
         if revisionID == blocked?.revisionID {
             return try await withCheckedThrowingContinuation { continuation = $0 }

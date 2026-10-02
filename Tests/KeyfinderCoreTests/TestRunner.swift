@@ -38,7 +38,7 @@ func require<T>(_ value: T?, file: String = #filePath, line: Int = #line) throws
                 liveLocation = location
             }
         } catch {
-            fputs("Usage: KeyfinderCoreChecks [--live-oryx <exact-revision Moonlander URL>]\n", stderr)
+            fputs("Usage: KeyfinderCoreChecks [--live-oryx <exact-revision Oryx URL>]\n", stderr)
             exit(2)
         }
         let core = CoreTests()
@@ -49,6 +49,8 @@ func require<T>(_ value: T?, file: String = #filePath, line: Int = #line) throws
             ("disabled and unknown keys", core.testDisabledUnknownAndTransparentStayDistinct),
             ("unknown-field round trip", core.testUnknownFieldsSurviveSnapshotRoundTrip),
             ("macros and gestures", core.testMacroAndGestureDetailsArePreserved),
+            ("keyboard model identity and URLs", core.testKeyboardModelsKeepNamesURLsAndIdentitiesDistinct),
+            ("all keyboard geometries", core.testEveryKeyboardGeometryFitsItsCanvas),
             ("URL and identity validation", core.testURLParsingAndCacheIdentitySafety),
             ("HID frame validation", core.testProtocolRejectsTruncatedInvalidAndKeystrokeReports),
             ("stale fetch rejection", core.testDisconnectAndRevisionChangeRejectStaleFetches),
@@ -63,13 +65,15 @@ func require<T>(_ value: T?, file: String = #filePath, line: Int = #line) throws
         }
         do { try await RepositoryTests().testBundledAndCachedLayoutAvoidNetworkAndRefreshDoesNotReplaceIdentity() }
         catch { failures.append("Repository checks: \(error)") }
-        var testCount = tests.count + 1
+        do { try await RepositoryTests().testCachesAndRefreshesAreScopedToKeyboardModels() }
+        catch { failures.append("Model cache checks: \(error)") }
+        var testCount = tests.count + 2
         if let location = liveLocation, let revision = location.revisionID {
             testCount += 1
             do {
-                let snapshot = try await OryxClient().fetch(layoutID: location.layoutID, revisionID: revision)
-                expectEqual(snapshot.identity, try LayoutIdentity(layoutID: location.layoutID, revisionID: revision))
-                expectTrue(!snapshot.layers.isEmpty && snapshot.layers.allSatisfy { $0.keys.count == 72 })
+                let snapshot = try await OryxClient().fetch(keyboard: location.keyboard, layoutID: location.layoutID, revisionID: revision)
+                expectEqual(snapshot.identity, try LayoutIdentity(layoutID: location.layoutID, revisionID: revision, keyboard: location.keyboard))
+                expectTrue(!snapshot.layers.isEmpty && snapshot.layers.allSatisfy { $0.keys.count == location.keyboard.keyCount })
                 print("PASS live Oryx exact-revision retrieval")
             } catch { failures.append("Live Oryx retrieval: \(error)") }
         }

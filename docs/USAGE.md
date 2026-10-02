@@ -1,8 +1,8 @@
 # Using Keyfinder
 
-Keyfinder is a macOS 26+ menu bar app for the ZSA Moonlander. [Download a disk image](../../../releases/latest) or [build and install with Nix](NIX.md), then open the app. Its keyboard icon lives in the menu bar by default; there is no Dock icon.
+Keyfinder is a macOS 26+ menu bar app for ZSA Moonlander, Voyager, and ErgoDox EZ keyboards. [Download a disk image](../../../releases/latest) or [build and install with Nix](NIX.md), then open the app. Its keyboard icon lives in the menu bar by default; there is no Dock icon.
 
-On first launch, Settings opens with **Keyfinder Demo**, a synthetic three-layer example for typing, symbols, and navigation. The demo belongs to no Oryx account and has no online configuration. Connect a Moonlander to load its installed revision automatically, paste a layout URL in **Layout & connection**, or import a saved snapshot. The demo cannot be assigned to an unidentified keyboard.
+On first launch, Settings opens with **Keyfinder Demo**, a synthetic three-layer example for typing, symbols, and navigation. The demo belongs to no Oryx account and has no online configuration. Connect a supported keyboard to load its installed revision automatically, paste a layout URL in **Layout & connection**, or import a saved snapshot. The demo cannot be assigned to an unidentified keyboard.
 
 Turn off **Appearance → Show menu bar icon** to hide the icon immediately. The preference persists across launches and does not pause the overlay or USB monitoring. Open Keyfinder from Applications or Spotlight to show Settings again; this also restores a closed or minimized Settings window when the app is already running. Login-item and `--background` startup do not open Settings. You can restore the icon or quit Keyfinder from the Application section in Appearance.
 
@@ -18,11 +18,13 @@ The app identifier is `io.keyfinder.app`. Earlier development builds used a diff
 
 While Settings has focus, **⌘W** closes the window and ends any overlay preview while monitoring continues. **⌘Q** quits Keyfinder. Both shortcuts work with the menu bar icon hidden and while editing a text field.
 
+The keyboard name in Settings comes from the connected device. Preview labels and key positions come from the preview’s model, which can differ from the connected keyboard. A preview for a different model cannot be assigned to an unidentified device.
+
 The live overlay does not activate the app or take keyboard focus. A current Oryx firmware build reports the initial layer when pairing, including when Keyfinder starts on a secondary layer.
 
 ## Oryx synchronization
 
-Oryx firmware encodes `layoutID/revisionID` in the USB serial descriptor. Keyfinder reads that identity and loads the **exact installed revision**. Flashing a new layout disconnects and reconnects the keyboard, which triggers synchronization. Both Moonlander revision A and B product IDs are supported by the adapter.
+Oryx firmware encodes `layoutID/revisionID` in the USB serial descriptor. Keyfinder reads that identity and loads the **exact installed revision**. Flashing a new layout disconnects and reconnects the keyboard, which triggers synchronization. USB identity selects the keyboard model. Layout URLs and cache entries keep Moonlander, Voyager, and ErgoDox EZ revisions separate, even when their layout and revision IDs match.
 
 An Oryx edit that has not been flashed does not change the live overlay. “Load / refresh preview” retrieves the URL's chosen revision, or the latest revision when the URL contains `latest`. The preview stays separate from the installed layout. Refreshing never flashes firmware, switches keyboard layers, or changes lighting.
 
@@ -42,7 +44,7 @@ Keyfinder opens the vendor-specific raw HID interface non-exclusively. It never 
 
 If macOS denies device access, the connection panel explains the error and links to Input Monitoring settings. Grant access if requested, then retry the connection. After a firmware flash, wait for the keyboard to reconnect. An unavailable-layout error means the installed revision could not be loaded; check connectivity or import a matching snapshot.
 
-Physical USB pairing, live layer reports, permission behavior, and coexistence with Oryx live training/Keymapp still require testing with an attached Moonlander. See the [verification record](VERIFICATION.md) for what has been checked.
+Physical USB pairing, live layer reports, permission behavior, and coexistence with Oryx live training/Keymapp still require testing with each physical keyboard model. See the [verification record](VERIFICATION.md) for what has been checked.
 
 ## Performance
 
@@ -54,4 +56,6 @@ Real device events, system notifications, UI interaction, and layout downloads p
 
 ## Protocol and geometry references
 
-USB protocol and device identity behavior follow ZSA's [Oryx module](https://github.com/zsa/qmk_modules/tree/main/oryx) and [Zapp](https://github.com/zsa/zapp). Physical key coordinates and matrix positions follow the [Moonlander definition](https://github.com/zsa/qmk_firmware/blob/93b2b9ec3368f86c5eb5a2e3f934049f8daef885/keyboards/zsa/moonlander/reva/keyboard.json), with thumb-cluster presentation adjusted for the Moonlander shape. See the [architecture](ARCHITECTURE.md) for pinned protocol references.
+USB protocol and device identity behavior follow ZSA's [Oryx module](https://github.com/zsa/qmk_modules/tree/main/oryx) and [Zapp](https://github.com/zsa/zapp). Moonlander key coordinates and matrix positions follow the [Moonlander definition](https://github.com/zsa/qmk_firmware/blob/93b2b9ec3368f86c5eb5a2e3f934049f8daef885/keyboards/zsa/moonlander/reva/keyboard.json), with thumb-cluster presentation adjusted for the Moonlander shape. See the [architecture](ARCHITECTURE.md) for pinned protocol references.
+
+Voyager and ErgoDox EZ use schematic drawings indexed by Oryx key position. Their matrix coordinates are omitted because Keyfinder does not use physical key reports. These new drawings still need verification with real keyboards.

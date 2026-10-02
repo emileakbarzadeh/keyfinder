@@ -16,6 +16,6 @@
     <key>LSUIElement</key><true/>
     <key>NSHighResolutionCapable</key><true/>
     <key>NSPrincipalClass</key><string>NSApplication</string>
-    <key>NSInputMonitoringUsageDescription</key><string>Keyfinder reads your Moonlander's layer changes to display the right keyboard overlay. It does not record your typing.</string>
+    <key>NSInputMonitoringUsageDescription</key><string>Keyfinder reads your keyboard's layer changes to display the right keyboard overlay. It does not record your typing.</string>
 </dict>
 </plist>

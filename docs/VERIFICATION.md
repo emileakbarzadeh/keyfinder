@@ -99,3 +99,13 @@ The verified DMG SHA-256 is:
 ```text
 3d6d3841fef24da98697decc01e0da46a352fd574a4fd1d72f7f074b4f7fd2f9
 ```
+
+**Multiple keyboard models**
+
+The model generalization compiled with the pinned Swift 6.3.3 compiler and macOS 26.4 SDK. Core verification passed 16 tests and 4,721 assertions. All 13 model-specific AppModel checks passed: names, geometry changes, preview/live separation, rejecting incompatible manual associations, and restoring a saved model. The full desktop suite timed out during window activation in the restricted test session; its report retains `passed: false`. The local app bundle passed signature verification, but launching it here aborted during macOS application registration before Keyfinder initialized.
+
+All three models render offscreen in Light and Dark. Voyager and ErgoDox EZ use schematic drawings in Oryx key order; their key positions, USB pairing, and live Oryx responses still require verification against the actual keyboards. The earlier bundle sizes, performance measurements, signatures, and reproducibility checks above describe the baseline build, not this change.
+
+**Transparent overlay — October 1, 2026**
+
+The overlay presentation change compiled with the pinned toolchain. Twelve offscreen renders cover all three keyboard models and both themes. Image alpha checks confirmed transparent gaps and empty badge/footer areas while keycaps remain opaque. README previews and animations were refreshed, and the local app bundle passed signature verification. Desktop activation remains subject to the restricted-session limitation above.

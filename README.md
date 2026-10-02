@@ -11,10 +11,10 @@
 
 <div align="center">
 
-A macOS app that shows your Moonlander’s active layer and the action assigned to each key.
+A macOS app that shows your keyboard’s active layer and the action assigned to each key.
 
 ![macOS 26+](https://img.shields.io/badge/macOS-26%2B-111315?style=flat-square&labelColor=111315&logo=apple&logoColor=f4f3ee)
-![ZSA Moonlander](https://img.shields.io/badge/ZSA-Moonlander-d62828?style=flat-square&labelColor=111315)
+![ZSA keyboards](https://img.shields.io/badge/ZSA-keyboards-d62828?style=flat-square&labelColor=111315)
 ![Built with Swift](https://img.shields.io/badge/Swift-native-111315?style=flat-square&labelColor=111315&logo=swift&logoColor=f77f00)
 ![Packaged with Nix](https://img.shields.io/badge/Nix-flake%20%2B%20nix--darwin-111315?style=flat-square&labelColor=111315&logo=nixos&logoColor=f4f3ee)
 
@@ -31,15 +31,17 @@ A macOS app that shows your Moonlander’s active layer and the action assigned 
 
 ## Features
 
-The overlay appears on layers 1 and above and hides on layer 0. It updates as you switch layers, passes clicks through, and leaves keyboard focus in your current app.
+The overlay appears on layers 1 and above and hides on layer 0. Keys float on a transparent background. It updates as you switch layers, passes clicks through, and leaves keyboard focus in your current app.
 
 | Feature | Behavior |
 | :--- | :--- |
 | Oryx synchronization | Loads the installed revision when the keyboard connects. Updates after flashing and reconnecting. |
-| Keyboard layout | All 72 keys, angled thumb clusters, tap/hold actions, and Oryx key colors. |
+| Keyboard layout | Model-specific layouts for Moonlander (72 keys), Voyager (52), and ErgoDox EZ (76), with tap/hold actions and Oryx key colors. |
 | Appearance | Light, Dark, or System theme. Adjustable size, opacity, display, position, and delay. Optional menu bar icon. |
 | Offline use | Cached layouts and a bundled three-layer demo. Layer previews in Settings. |
 | Privacy | Physical keypress reports are discarded. No typing history is recorded. |
+
+Keyfinder detects the keyboard model from USB. Oryx URLs and imported snapshots select the model for previews. It monitors one connected keyboard at a time. Voyager and ErgoDox EZ support has been checked with fixtures and rendered previews; their physical key positions and live connections remain unverified.
 
 Oryx edits reach the live overlay after you flash them. Unflashed revisions can be previewed separately in Settings.
 
@@ -51,7 +53,7 @@ Keyfinder waits for USB and system events, with no polling, repeating timers, or
 | :---: | :---: | :---: |
 | **~0.0002%** of one core | **~46 MiB** | **1.9 MiB** |
 
-Measured over 30 seconds on Apple Silicon running macOS 26.6.2, using the Nix release build with Settings closed and no keyboard connected. The measurements exclude startup and do not cover a connected keyboard or visible overlay. The app size excludes build tools. [Verification details](docs/VERIFICATION.md).
+Measured for the earlier Moonlander-only build over 30 seconds on Apple Silicon running macOS 26.6.2, using the Nix release build with Settings closed and no keyboard connected. The measurements exclude startup and do not cover a connected keyboard or visible overlay. The app size excludes build tools. [Verification details](docs/VERIFICATION.md).
 
 Oryx is contacted only to fetch an uncached installed revision or refresh a preview. Starting without a keyboard makes no Oryx request.
 
@@ -61,7 +63,7 @@ Requires **macOS 26 or later**. [Download the latest release](../../releases/lat
 
 Use `Keyfinder-macOS-arm64.dmg` for Apple Silicon or `Keyfinder-macOS-x86_64.dmg` for Intel. Open the disk image, drag **Keyfinder.app** to Applications, and open it. The downloaded app does not require Nix.
 
-On first launch, Settings shows the bundled demo. Connect your Moonlander to load its installed layout, or paste an Oryx URL in **Layout & connection**.
+On first launch, Settings shows the bundled demo. Connect your keyboard to load its installed layout, or paste an Oryx URL in **Layout & connection**.
 
 The downloads are signed ad hoc and are not notarized. If macOS blocks opening the app, use **System Settings → Privacy & Security → Open Anyway** after attempting to open it. If macOS requests Input Monitoring access, grant it to Keyfinder and retry the connection from Settings.
 
@@ -147,8 +149,8 @@ nix fmt
 
 The Swift core handles layouts, labels, USB packet decoding, and caching. AppKit, SwiftUI, and IOKit provide macOS integration. There are no third-party Swift package dependencies. The core is separate from the macOS adapter for a possible Linux port.
 
-USB pairing, physical layer changes, and flash/reconnect behavior have not yet been tested with a connected Moonlander. Current checks use protocol fixtures, simulated USB events, and a live Oryx fetch. [Verification record](docs/VERIFICATION.md).
+USB pairing, physical layer changes, and flash/reconnect behavior have not yet been tested with physical keyboards. Checks use protocol fixtures and simulated USB events. A live Oryx fetch was verified for the earlier Moonlander build. [Verification record](docs/VERIFICATION.md).
 
 [Architecture](docs/ARCHITECTURE.md) · [Contributing](CONTRIBUTING.md) · [User guide](docs/USAGE.md) · [Nix packaging](docs/NIX.md)
 
-Built for [ZSA’s Moonlander](https://www.zsa.io/moonlander), using its [Oryx protocol](https://github.com/zsa/qmk_modules/tree/main/oryx). Keyfinder is an independent project.
+Built for [ZSA keyboards](https://www.zsa.io/), using its [Oryx protocol](https://github.com/zsa/qmk_modules/tree/main/oryx). Keyfinder is an independent project.

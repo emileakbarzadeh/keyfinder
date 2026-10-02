@@ -1,5 +1,5 @@
 {
-  description = "Keyfinder — a Moonlander layer overlay for macOS 26+";
+  description = "Keyfinder — a ZSA keyboard layer overlay for macOS 26+";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-26.05-darwin";

@@ -8,7 +8,6 @@ public enum OryxReport: Equatable, Sendable {
 public enum OryxProtocol {
     public static let reportSize = 32
     public static let vendorID = 0x3297
-    public static let productIDs = [0x1969, 0x1972]
     public static let usagePage = 0xFF60
     public static let usage = 0x61
 
