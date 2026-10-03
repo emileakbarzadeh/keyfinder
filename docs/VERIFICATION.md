@@ -167,3 +167,9 @@ The release app and DMG also build successfully. The app build passes 16 core te
 Twelve new smoke checks send real key events through `NSApp.sendEvent` to a Settings text field, with the menu bar icon both hidden and visible. They cover ⌘A, ⌘C, ⌘X, ⌘V, ⌘Z, and ⇧⌘Z, and save and restore the general pasteboard. With the previous `AppDelegate`, all twelve fail. With the fix, all 127 smoke checks pass in a debug `swift build` on Apple Silicon. The 32 firmware checks and 16 core tests (4,721 assertions) also pass.
 
 Settings also no longer shows explanatory captions, the supported-keyboard list, the header subtitle, or the duplicated connection status. Errors, warnings, the bootloader reset prompt, and a reworded Performance note remain. All four pages were rendered and inspected in Light and Dark. The release app and DMG were not rebuilt for this change.
+
+**Preview follows a flashed revision — October 2, 2026**
+
+The live overlay already loaded the revision a keyboard reports after reconnecting. The Settings preview and layout URL followed it only when no URL was saved, so a flash left Settings showing the previous layout. A successful flash now makes the next installed layout replace the preview and URL. A `latest` URL for the same layout is preserved. A failed flash, or an explicit refresh or import before the reconnect, leaves the preview unchanged. Reconnecting without a flash behaves as before.
+
+Five new firmware checks use the simulated Zapp runner and keyboard with cached fixture revisions. Without the change, three fail. With it, all 37 firmware checks, 127 smoke checks, 39 shortcut checks, and 16 core tests (4,721 assertions) pass in a debug `swift build` on Apple Silicon. No keyboard was flashed; reconnection timing and identity reporting on real hardware remain unverified.

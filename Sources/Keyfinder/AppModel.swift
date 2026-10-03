@@ -47,6 +47,8 @@ import ServiceManagement
     private var observers: [NSObjectProtocol] = []
     private var blockingProblem: String?
     private var layoutFailure: String?
+    // Set by a successful flash; the next installed layout replaces the preview.
+    private var previewFollowsNextInstall = false
     var onStatusChange: (() -> Void)?
     var onMenuBarVisibilityChange: ((Bool) -> Void)?
     var onAppearanceChange: ((AppAppearance) -> Void)?
@@ -222,11 +224,9 @@ import ServiceManagement
                 guard !Task.isCancelled, let self, self.session.accept(snapshot, for: lease) else { return }
                 self.layoutFailure = nil
                 self.liveLayers = LabelResolver.prepare(snapshot)
-                if self.preferences.layoutURL.isEmpty && !snapshot.isDemo {
-                    var preferences = self.preferences
-                    preferences.layoutURL = snapshot.identity.url.absoluteString
-                    self.setPreferences(preferences)
-                    self.setPreview(snapshot)
+                if (self.preferences.layoutURL.isEmpty || self.previewFollowsNextInstall) && !snapshot.isDemo {
+                    self.previewFollowsNextInstall = false
+                    self.previewInstalled(snapshot)
                 }
                 self.updateConnectedStatus()
                 self.synchronizeOverlay(); self.onStatusChange?()
@@ -290,6 +290,7 @@ import ServiceManagement
             let generation = previewGeneration
             var updated = preferences; updated.layoutURL = text
             setPreferences(updated)
+            previewFollowsNextInstall = false
             isRefreshing = true; notice = nil
             previewTask = Task { [weak self, repository] in
                 do {
@@ -314,6 +315,18 @@ import ServiceManagement
         } catch { notice = error.localizedDescription }
     }
 
+    private func previewInstalled(_ snapshot: LayoutSnapshot) {
+        // A "latest" URL for the same layout still describes it; keep it for the next refresh.
+        let location = try? OryxLocation(url: preferences.layoutURL)
+        if location?.revisionID != nil || location?.keyboard != snapshot.keyboard || location?.layoutID != snapshot.layoutID {
+            var preferences = self.preferences
+            preferences.layoutURL = snapshot.identity.url.absoluteString
+            setPreferences(preferences)
+        }
+        notice = nil
+        setPreview(snapshot)
+    }
+
     private func setPreview(_ snapshot: LayoutSnapshot) {
         guard let geometry = try? KeyboardGeometry.load(for: snapshot.keyboard) else {
             notice = "Could not load the \(snapshot.keyboardName) keyboard drawing."
@@ -329,7 +342,7 @@ import ServiceManagement
     }
 
     func importSnapshot(_ url: URL) {
-        previewTask?.cancel(); previewGeneration = UUID()
+        previewTask?.cancel(); previewGeneration = UUID(); previewFollowsNextInstall = false
         let generation = previewGeneration
         isRefreshing = true; notice = nil
         previewTask = Task { [weak self, repository] in
@@ -434,11 +447,13 @@ import ServiceManagement
             // Clear the old revision before suppressing disconnected callbacks.
             receive(.disconnected)
             isFlashingFirmware = true
+            previewFollowsNextInstall = false
             suspend()
             status = "Flashing keyboard firmware"
             connectionDetail = ""
         } else {
             isFlashingFirmware = false
+            previewFollowsNextInstall = firmware.state == .succeeded
             receive(.disconnected)
             if running && !suspended && !isPaused { monitor.start() }
             updateHotKeyRegistration()

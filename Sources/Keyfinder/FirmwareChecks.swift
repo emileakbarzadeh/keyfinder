@@ -98,6 +98,43 @@ extension Diagnostics {
         checks["completion_in_inactive_session_keeps_monitoring_stopped"] = !keyboard.running
         model.setSystemState(sessionActive: true)
         checks["return_to_active_session_resumes_monitoring"] = keyboard.running
+
+        // After a successful flash, Settings shows the revision the keyboard reports.
+        let cache = LayoutRepository(directory: temporary, client: FirmwareOfflineClient())
+        for revision in ["v2", "v3"] { try await cache.save(keyboardFixture(.moonlander, revisionID: revision)) }
+        let chosen = temporary.appendingPathComponent("chosen-preview.json")
+        try LayoutRepository.export(keyboardFixture(.moonlander, revisionID: "v1"), to: chosen)
+        func choosePreview() async throws {
+            model.importSnapshot(chosen); try await firmwareWait { !model.isRefreshing && model.previewSnapshot?.revisionID == "v1" }
+        }
+        func flash(exitStatus: Int32) async throws {
+            let starts = runner.starts
+            model.flashFirmware(); try await firmwareWait { runner.starts == starts + 1 }
+            runner.finish(ZappResult(status: exitStatus, signalled: false)); try await firmwareWait { !model.isFlashingFirmware }
+        }
+        func reconnect(revision: String) async throws {
+            keyboard.emit(.disconnected)
+            keyboard.emit(.connected(ConnectedKeyboard(name: "Moonlander", serial: "model-fixture/\(revision)", productID: 0x1969)))
+            try await firmwareWait { model.installedRevision == revision && model.status == "Connected · awaiting layer" }
+        }
+        func previewing(_ revision: String, url: String) -> Bool {
+            model.previewSnapshot?.identity == (try? LayoutIdentity(layoutID: "model-fixture", revisionID: revision)) && model.preferences.layoutURL == url
+        }
+        let exactURL = { (revision: String) in "https://configure.zsa.io/moonlander/layouts/model-fixture/\(revision)/0" }
+        try await choosePreview()
+        try await reconnect(revision: "v2")
+        checks["reconnect_without_flash_keeps_chosen_preview"] = previewing("v1", url: exactURL("v1"))
+        try await flash(exitStatus: 0); try await reconnect(revision: "v2")
+        checks["successful_flash_previews_installed_revision"] = previewing("v2", url: exactURL("v2"))
+        let latest = "https://configure.zsa.io/moonlander/layouts/model-fixture/latest"
+        var following = model.preferences; following.layoutURL = latest; model.setPreferences(following)
+        try await flash(exitStatus: 0); try await reconnect(revision: "v3")
+        checks["successful_flash_keeps_latest_url_for_same_layout"] = previewing("v3", url: latest)
+        try await flash(exitStatus: 17); try await reconnect(revision: "v2")
+        checks["failed_flash_keeps_preview"] = previewing("v3", url: latest)
+        try await flash(exitStatus: 0); try await choosePreview(); try await reconnect(revision: "v2")
+        checks["preview_chosen_after_flash_is_kept"] = previewing("v1", url: exactURL("v1"))
+
         runner.failToLaunch = true; model.flashFirmware(); try await firmwareWait { !model.isFlashingFirmware }
         checks["launch_failure_resumes_monitoring_and_reports_error"] = keyboard.running && firmware.state == .failed && firmware.message?.contains("Fixture launch failure") == true
         runner.isAvailable = false

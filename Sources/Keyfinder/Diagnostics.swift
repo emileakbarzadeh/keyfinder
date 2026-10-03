@@ -283,12 +283,12 @@ import KeyfinderCore
         }
     }
 
-    static func keyboardFixture(_ keyboard: KeyboardModel) throws -> LayoutSnapshot {
+    static func keyboardFixture(_ keyboard: KeyboardModel, revisionID: String = "v1") throws -> LayoutSnapshot {
         let keys: [JSONValue] = (0..<keyboard.keyCount).map { index in
             .object(["tap": .object(["code": .string("KC_A")]), "customLabel": .string("\(index)")])
         }
-        return try LayoutSnapshot(layoutID: "model-fixture", title: "\(keyboard.displayName) · key positions", revisionID: "v1",
-                                  source: .object(["hashId": .string("v1"), "layers": .array([
+        return try LayoutSnapshot(layoutID: "model-fixture", title: "\(keyboard.displayName) · key positions", revisionID: revisionID,
+                                  source: .object(["hashId": .string(revisionID), "layers": .array([
                                     .object(["position": .number(0), "title": .string("Typing"), "keys": .array(keys)]),
                                     .object(["position": .number(1), "title": .string("Example"), "keys": .array(keys)])
                                   ])]), keyboard: keyboard).validated()
