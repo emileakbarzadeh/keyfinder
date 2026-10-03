@@ -24,16 +24,25 @@ The GUI checks need a logged-in macOS session and write a JSON report; the comma
 
 ### Idle performance
 
-Measured with `nix run .#benchmark -- --seconds 30` on Apple Silicon and macOS 26, using the release build with Settings closed and no keyboard connected:
+Measured for v1.1.0 on an M2 Max running macOS 26.6.2. The release build ran with `--background`, Settings closed, and no keyboard connected. `nix run .#benchmark -- --seconds 60` sampled it twice after a 3-second startup allowance; `footprint` and `top` sampled a separate idle run.
+
+| Metric | Run 1 | Run 2 |
+| --- | --- | --- |
+| CPU time in 60 seconds | 65 µs | 97 µs |
+| Average CPU | 0.000108% of one core | 0.000161% of one core |
+| Context switches | 30 | 41 |
+| Mach messages received | 4 | 6 |
+| Threads | 4 | 4 |
 
 | Metric | Observed |
 | --- | --- |
-| Average CPU | 0.000164% of one core |
-| Resident memory | 46.4 MiB |
-| Context switches | 19 in 30 seconds |
-| Threads | 3 |
+| Startup CPU (first 3 seconds) | 0.09 s |
+| Memory footprint | 12 MB (resident size 69.6 MiB, including shared system frameworks) |
+| Idle wakeups and energy impact (`top`, 60 seconds) | 0 and 0.0 |
+| App bundle | 10 MB, including the 7.6 MB Zapp helper |
+| Disk image | 4.2 MB |
 
-This predates multi-model support and the bundled Zapp helper. It excludes startup, a connected keyboard, and a visible overlay. A source audit found no repeating timers, polling loops, background URL sessions, event taps, or continuous rendering. The only scheduled delays are a one-shot connection deadline and the optional appearance delay.
+A connected keyboard, a visible overlay, and typing have not been measured. A source audit found no repeating timers, polling loops, background URL sessions, event taps, or continuous rendering. The only scheduled delays are a one-shot connection deadline and the optional appearance delay.
 
 ## Not yet verified
 

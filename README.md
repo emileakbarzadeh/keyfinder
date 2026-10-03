@@ -50,15 +50,35 @@ Oryx edits reach the live overlay after you flash them. Unflashed revisions can 
 
 ## Performance
 
-Keyfinder waits for USB and system events, with no polling, repeating timers, or continuous rendering. Hidden overlays do no drawing, duplicate layer reports do no UI work, and Pause stops USB monitoring.
+Keyfinder sleeps until something happens. There is no polling, no repeating timer, and no continuous rendering.
 
-| Measured idle CPU | Resident memory | App bundle |
-| :---: | :---: | :---: |
-| **~0.0002%** of one core | **~46 MiB** | **1.9 MiB** |
+| Idle CPU | Idle wakeups | Memory | Download |
+| :---: | :---: | :---: | :---: |
+| **~0.0001%** of one core | **0** per minute | **12 MB** | **4.2 MB** |
 
-Measured for the earlier Moonlander-only build over 30 seconds on Apple Silicon running macOS 26.6.2, using the Nix release build with Settings closed and no keyboard connected. These are historical measurements: they exclude startup, a connected keyboard, a visible overlay, and the newly bundled Zapp executable. [Verification details](docs/VERIFICATION.md).
+Measured for v1.1.0 on an M2 Max running macOS 26.6.2: the release build started with `--background`, Settings closed, and no keyboard connected, over two 60-second runs. Startup took 0.09 seconds of CPU. Memory is the footprint shown in Activity Monitor. The installed app is 10 MB, 7.6 MB of which is the bundled Zapp. A connected keyboard and a visible overlay have not been measured yet. [Verification details](docs/VERIFICATION.md).
 
-Oryx is contacted only to fetch an uncached installed revision or refresh a preview. Starting without a keyboard makes no Oryx request. Zapp runs only during an explicit flash and exits afterward.
+Keyfinder only runs code in response to these events:
+
+| Event | What Keyfinder does |
+| :--- | :--- |
+| Keyboard connected or disconnected | Pairs over USB and loads the installed revision's layout, from the cache or, once, from Oryx |
+| Layer change reported by the keyboard | Shows, hides, or relabels the overlay; repeated reports of the same layer are ignored |
+| Keypress reported by the keyboard | Discarded on arrival. Oryx firmware reports every key press and release while paired |
+| Hold shortcut pressed or released | Shows the typing layer, then restores the overlay |
+| Sleep, wake, or switching macOS users | Stops or restarts USB monitoring and the shortcut |
+| Display arrangement or light/dark change | Repositions or redraws the overlay, only while it is visible |
+| Settings, the menu bar menu, preview refresh, or flashing | Runs only while you use them |
+
+The only scheduled work is a one-shot 3-second deadline while pairing and the optional appearance delay. Pause stops USB monitoring entirely. Oryx is contacted only to fetch an uncached installed revision or refresh a preview, and Zapp runs only during a flash.
+
+## Privacy
+
+ZSA's Oryx firmware only reports layer changes to an app that has paired with the keyboard, and while paired it also reports every key you press and release. The same pairing switch controls both the [keystroke reports](https://github.com/zsa/qmk_modules/blob/13890cd7856175de20798689d15ba6a46bf0c5c7/oryx/oryx.c#L322-L330) and the [layer reports](https://github.com/zsa/qmk_modules/blob/13890cd7856175de20798689d15ba6a46bf0c5c7/oryx/oryx.c#L334-L353), so it is not possible to receive layer information without also receiving keystroke information.
+
+Each keystroke report contains the key's position and whether it went up or down. Keyfinder [drops these reports immediately](https://github.com/emileakbarzadeh/keyfinder/blob/d4af8d3c3d12c7e3dd76163eb2eeb0111ac5c96a/Sources/Keyfinder/HIDMonitor.swift#L103-L107), as the first step of its USB callback, before they are decoded, stored, or sent anywhere. Pause disconnects Keyfinder from the keyboard entirely.
+
+macOS does not ask for Input Monitoring permission here, because this is ZSA's separate data channel rather than the keyboard's typing interface. Keymapp and Oryx's live training use the same channel.
 
 ## Flash firmware
 
