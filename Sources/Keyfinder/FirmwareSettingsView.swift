@@ -11,8 +11,6 @@ struct FirmwareSettingsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
                 SettingsSection("Flash keyboard firmware") {
-                    Text("Download the compiled firmware from Oryx, then choose it here. Use the file for your keyboard model.")
-                        .foregroundStyle(Color(nsColor: Theme.mutedText))
                     VStack(spacing: 12) {
                         Image(systemName: firmware.image == nil ? "arrow.down.document" : "doc.badge.gearshape")
                             .font(.system(size: 32, weight: .light)).foregroundStyle(Color(nsColor: Theme.accentText))
@@ -47,8 +45,6 @@ struct FirmwareSettingsView: View {
                         Label("Zapp is missing from this build. Reinstall Keyfinder. For a source build, run it from nix develop.", systemImage: "exclamationmark.triangle")
                             .font(.callout).foregroundStyle(Color(nsColor: Theme.accentText))
                     }
-                    Text("Flashing replaces the keyboard’s firmware. Connect only the keyboard you want to update. Keep your Mac awake and the keyboard plugged in until Zapp finishes.")
-                        .font(.callout).foregroundStyle(Color(nsColor: Theme.mutedText))
                     HStack {
                         Label(firmware.targetName ?? model.connectedKeyboardName ?? "Connect your keyboard by USB", systemImage: "cable.connector")
                             .font(.callout).foregroundStyle(Color(nsColor: Theme.mutedText))
@@ -67,11 +63,9 @@ struct FirmwareSettingsView: View {
                         if firmware.isFlashing {
                             HStack(spacing: 12) {
                                 ProgressView().controlSize(.small)
-                                Text("When Zapp is waiting for bootloader mode, press your keyboard’s reset button to start flashing.")
+                                Text("Press your keyboard’s reset button when Zapp asks.")
                                     .font(.callout)
                             }
-                            Text("The overlay is paused. You can close Settings; Keyfinder will stay open until flashing finishes.")
-                                .font(.caption).foregroundStyle(Color(nsColor: Theme.mutedText))
                         }
                         ScrollViewReader { proxy in
                             ScrollView {
@@ -86,8 +80,6 @@ struct FirmwareSettingsView: View {
                             .background(Color(nsColor: Theme.background), in: RoundedRectangle(cornerRadius: 8))
                     }
                 }
-                Text("Powered by ZSA’s Zapp. File selection and flashing require no Accessibility, Input Monitoring, or Screen Recording access.")
-                    .font(.caption).foregroundStyle(Color(nsColor: Theme.mutedText))
             }.frame(maxWidth: 800).padding(.horizontal, 24).padding(.vertical, 8).frame(maxWidth: .infinity)
         }
     }

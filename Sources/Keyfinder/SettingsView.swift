@@ -17,17 +17,11 @@ struct SettingsView: View {
             HStack(spacing: 13) {
                 Image(systemName: "keyboard").font(.system(size: 26, weight: .medium)).foregroundStyle(Color(nsColor: Theme.ink))
                     .frame(width: 52, height: 52).background(Color(nsColor: Theme.orange), in: RoundedRectangle(cornerRadius: 13))
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Keyfinder").font(.title2.weight(.semibold))
-                    Text(model.connectedKeyboardName.map { "\($0) layer overlay" } ?? "Keyboard layer overlay").foregroundStyle(Color(nsColor: Theme.mutedText))
-                }
+                Text("Keyfinder").font(.title2.weight(.semibold))
                 Spacer()
-                VStack(alignment: .trailing, spacing: 5) {
-                    HStack(spacing: 6) {
-                        Circle().fill(model.connected && !model.isPaused ? Color(nsColor: Theme.orange) : Color(nsColor: Theme.mutedText)).frame(width: 7, height: 7)
-                        Text(model.status).font(.callout)
-                    }
-                    Text(model.isHoldingTypingLayer ? "Showing layer 0" : "Hidden on layer 0").font(.caption).foregroundStyle(Color(nsColor: Theme.mutedText))
+                HStack(spacing: 6) {
+                    Circle().fill(model.connected && !model.isPaused ? Color(nsColor: Theme.orange) : Color(nsColor: Theme.mutedText)).frame(width: 7, height: 7)
+                    Text(model.status).font(.callout)
                 }
             }.padding(.horizontal, 25).padding(.vertical, 19)
             Divider()
@@ -71,18 +65,13 @@ struct SettingsView: View {
                 .aspectRatio(920 / KeyboardView.height(forWidth: 920, geometry: model.geometry), contentMode: .fit)
                 .frame(maxWidth: .infinity, maxHeight: 510)
             VStack(alignment: .leading, spacing: 7) {
-                Text(model.selectedKey == nil ? "Explore your layout" : "Key details").font(.headline)
+                Text("Key details").font(.headline)
                 ScrollView {
-                    Text(model.selectedKey?.detail ?? "Click a key to see its tap, hold, and inherited actions. This preview is available even when your keyboard is unplugged.")
+                    Text(model.selectedKey?.detail ?? "Click a key.")
                         .font(.callout).foregroundStyle(Color(nsColor: Theme.mutedText)).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
                 }.frame(height: 76)
             }.padding(14).frame(maxWidth: .infinity, alignment: .leading)
                 .background(Color(nsColor: Theme.surface), in: RoundedRectangle(cornerRadius: 12))
-            HStack {
-                Text(model.previewSnapshot?.isDemo == true ? "Keyfinder Demo · offline example" : "\(model.previewSnapshot?.title ?? "Keyboard") · revision \(model.previewSnapshot?.revisionID ?? "—")")
-                Spacer()
-                Text("Preview does not change your keyboard")
-            }.font(.caption).foregroundStyle(Color(nsColor: Theme.mutedText))
             Spacer(minLength: 0)
         }.padding(12)
     }
@@ -94,12 +83,9 @@ struct SettingsView: View {
                     PalettePicker(label: "Color theme", options: AppAppearance.allCases.map { ($0, $0.title) },
                                   selection: preference(\.appearance))
                         .frame(maxWidth: 330)
-                    Text("System follows macOS. The theme applies to Settings and the overlay.")
-                        .font(.caption).foregroundStyle(Color(nsColor: Theme.mutedText))
                 }
                 SettingsSection("Application") {
                     switchRow("Show menu bar icon", isOn: preference(\.showMenuBarIcon))
-                    Text("When the icon is hidden, open Keyfinder from Applications or Spotlight to return to Settings. The overlay keeps working.").font(.caption).foregroundStyle(Color(nsColor: Theme.mutedText))
                     switchRow("Launch Keyfinder at login", isOn: Binding(get: { model.launchAtLogin }, set: model.setLaunchAtLogin))
                     Button("Quit Keyfinder") { NSApp.terminate(nil) }
                 }
@@ -113,10 +99,6 @@ struct SettingsView: View {
                                          }, onRecordingChanged: model.setHotKeyRecording)
                             .frame(width: 210, height: 30)
                     }
-                    Text("Click the shortcut to change it. Hold it to see layer 0; release to return to the current layer. Esc cancels recording.")
-                        .font(.caption).foregroundStyle(Color(nsColor: Theme.mutedText))
-                    Text("For a dedicated key, assign F18 in Oryx. This shortcut needs no Accessibility or Input Monitoring access.")
-                        .font(.caption).foregroundStyle(Color(nsColor: Theme.mutedText))
                     if let error = model.hotKeyError {
                         Text(error).font(.callout).foregroundStyle(Color(nsColor: Theme.accentText))
                         Button("Retry shortcut") { model.updateHotKeyRegistration() }
@@ -132,7 +114,6 @@ struct SettingsView: View {
                             Text("Immediately").tag(0.0); Text("100 ms").tag(0.1); Text("200 ms").tag(0.2); Text("300 ms").tag(0.3)
                         }.labelsHidden()
                     }
-                    Text("A short delay can hide brief layer changes. Returning to layer 0 always hides the overlay immediately.").font(.caption).foregroundStyle(Color(nsColor: Theme.mutedText))
                 }
                 SettingsSection("Position") {
                     HStack {
@@ -155,7 +136,6 @@ struct SettingsView: View {
                     Button(model.isArranging ? "Done arranging" : "Drag overlay into place…") {
                         if model.isArranging { model.endOverlayPreview() } else { model.showOverlayPreview(arrange: true) }
                     }
-                    Text("The live overlay passes clicks through to your apps. Dragging is enabled only while arranging.").font(.caption).foregroundStyle(Color(nsColor: Theme.mutedText))
                     Button("Restore appearance defaults") {
                         var value = Preferences()
                         value.layoutURL = model.preferences.layoutURL
@@ -174,13 +154,12 @@ struct SettingsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
                 SettingsSection(model.connectedKeyboardName ?? "Keyboard") {
-                    LabeledContent("Status", value: model.status)
                     if let layer = model.currentLayer { LabeledContent("Active layer", value: "\(layer)") }
                     if let revision = model.installedRevision { LabeledContent("Installed revision", value: revision) }
                     if let version = model.protocolVersion { LabeledContent("Oryx protocol", value: "\(version)") }
-                    Text(model.connectionDetail).foregroundStyle(Color(nsColor: Theme.mutedText)).textSelection(.enabled)
-                    Text("Supported keyboards: " + KeyboardModel.allCases.map(\.displayName).joined(separator: ", "))
-                        .font(.caption).foregroundStyle(Color(nsColor: Theme.mutedText))
+                    if !model.connectionDetail.isEmpty {
+                        Text(model.connectionDetail).foregroundStyle(Color(nsColor: Theme.mutedText)).textSelection(.enabled)
+                    }
                     HStack {
                         Button("Retry connection") { model.retryConnection() }.disabled(model.isPaused || model.isFlashingFirmware)
                         Button(model.isPaused ? "Resume monitoring" : "Pause monitoring") { model.togglePause() }.disabled(model.isFlashingFirmware)
@@ -191,7 +170,7 @@ struct SettingsView: View {
                     }
                 }
                 SettingsSection("Oryx layout") {
-                    TextField("Layout URL", text: $urlText, prompt: Text("Paste a keyboard layout URL from Oryx")).textFieldStyle(.roundedBorder)
+                    TextField("Layout URL", text: $urlText, prompt: Text("Oryx layout URL")).textFieldStyle(.roundedBorder)
                     HStack {
                         Button(model.isRefreshing ? "Loading…" : "Load / refresh preview") { model.refreshLayout(url: urlText) }
                             .disabled(model.isRefreshing || urlText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -203,14 +182,12 @@ struct SettingsView: View {
                         Button("Export snapshot…", action: exportFile).disabled(model.previewSnapshot == nil)
                     }
                     if let notice = model.notice { Text(notice).font(.callout).foregroundStyle(Color(nsColor: Theme.mutedText)).textSelection(.enabled) }
-                    if model.previewSnapshot?.isDemo == true {
-                        Text("This offline demo is a synthetic example. Connect your keyboard, paste an Oryx URL, or import a snapshot to use a real layout.").font(.callout).foregroundStyle(Color(nsColor: Theme.mutedText))
-                    }
-                    Text("The live overlay follows the revision installed on your keyboard. After flashing in Oryx, it updates when the keyboard reconnects. Refreshing here changes the preview.").font(.callout).foregroundStyle(Color(nsColor: Theme.mutedText))
                 }
                 SettingsSection("Performance") {
-                    Text("No polling, scheduled refreshes, or continuous rendering. Keyfinder waits for USB and system notifications. Cached layouts work offline.").foregroundStyle(Color(nsColor: Theme.mutedText))
-                    Text("Oryx also sends physical key reports while connected. Keyfinder discards them immediately; it does not record or analyze your typing.").font(.caption).foregroundStyle(Color(nsColor: Theme.mutedText))
+                    Text("Keyfinder rests until your keyboard or Mac has something new to say. Nothing polls, nothing refreshes on a schedule, and nothing redraws in the background. Saved layouts work offline.")
+                        .foregroundStyle(Color(nsColor: Theme.mutedText))
+                    Text("Your keyboard also reports each keypress while connected. Keyfinder discards these the moment they arrive and never records or analyzes your typing.")
+                        .font(.caption).foregroundStyle(Color(nsColor: Theme.mutedText))
                 }
             }.frame(maxWidth: 800).padding(.horizontal, 24).padding(.vertical, 8)
                 .frame(maxWidth: .infinity)

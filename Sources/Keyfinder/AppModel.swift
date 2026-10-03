@@ -12,7 +12,7 @@ import ServiceManagement
     @Published private(set) var status = "Waiting for your keyboard"
     @Published private(set) var connectedKeyboardName: String?
     @Published private(set) var connectedKeyboardModel: KeyboardModel?
-    @Published private(set) var connectionDetail = "Connect your keyboard when you’re ready. Preview works offline."
+    @Published private(set) var connectionDetail = ""
     @Published private(set) var notice: String?
     @Published private(set) var isPaused = false
     @Published private(set) var isRefreshing = false
@@ -177,7 +177,7 @@ import ServiceManagement
             installedRevision = identity?.revisionID; currentLayer = nil; protocolVersion = nil
             liveLayers = [:]; blockingProblem = nil; layoutFailure = nil
             status = "Connecting to \(device.displayName)"
-            connectionDetail = identity.map { "Layout \($0.layoutID) · revision \($0.revisionID)" } ?? "Reading the installed Oryx revision…"
+            connectionDetail = ""
             loadInstalled()
         case .identity(let identity):
             guard session.connected, identity.keyboard == connectedKeyboardModel else { return }
@@ -200,7 +200,7 @@ import ServiceManagement
             connectedKeyboardName = nil; connectedKeyboardModel = nil
             blockingProblem = nil; layoutFailure = nil
             status = isPaused ? "Keyfinder is paused" : "Waiting for your keyboard"
-            connectionDetail = isPaused ? "USB monitoring is stopped until you resume." : "Connect your keyboard when you’re ready. Preview works offline."
+            connectionDetail = ""
         case .problem(let message, let blocking):
             if blocking { blockingProblem = message }
             status = "Connection needs attention"; connectionDetail = message
@@ -250,7 +250,7 @@ import ServiceManagement
         }
         if session.snapshot != nil {
             status = session.layer.map { $0 == 0 ? "Connected · typing layer" : "Connected · layer \($0)" } ?? "Connected · awaiting layer"
-            connectionDetail = "Installed revision \(session.identity?.revisionID ?? "unknown")" + (identityVerified ? " · automatic sync" : " · manually selected, unverified")
+            connectionDetail = identityVerified ? "" : "Manually selected revision (unverified)"
         } else if session.identity != nil {
             status = "Loading installed layout"
         }
@@ -302,7 +302,7 @@ import ServiceManagement
                             return "\(snapshot.keyboardName) preview updated. The live overlay still follows your \(identity.keyboard.displayName)."
                         }
                         return "Preview updated. The live overlay will use this revision after it is flashed to your keyboard."
-                    } ?? "Preview updated and saved for offline use."
+                    } ?? "Preview updated."
                     self.isRefreshing = false
                     // A previously missing installed revision may now have been cached.
                     if self.session.identity == snapshot.identity { self.loadInstalled() }
@@ -375,7 +375,7 @@ import ServiceManagement
         if isPaused { monitor.stop(); overlay.hide() }
         else {
             status = "Waiting for your keyboard"
-            connectionDetail = "Connect your keyboard when you’re ready. Preview works offline."
+            connectionDetail = ""
             if !suspended { monitor.start() }
         }
         updateHotKeyRegistration()
@@ -436,7 +436,7 @@ import ServiceManagement
             isFlashingFirmware = true
             suspend()
             status = "Flashing keyboard firmware"
-            connectionDetail = "Zapp is using the keyboard. Monitoring resumes after it finishes."
+            connectionDetail = ""
         } else {
             isFlashingFirmware = false
             receive(.disconnected)

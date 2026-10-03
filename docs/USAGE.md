@@ -17,7 +17,7 @@ The app identifier is `io.keyfinder.app`. Earlier development builds used a diff
 - **Firmware** stages a `.bin` file and runs Zapp when you click **Flash keyboard**.
 - **Pause** stops USB monitoring. **Quit** stops the app. The app's own launch-at-login option is off by default. Leave it off if the nix-darwin module manages startup.
 
-While Settings has focus, **⌘W** closes the window and ends any overlay preview while monitoring continues. **⌘Q** quits Keyfinder. Both shortcuts work with the menu bar icon hidden and while editing a text field.
+While Settings has focus, **⌘W** closes the window and ends any overlay preview while monitoring continues. **⌘Q** quits Keyfinder. Both shortcuts work with the menu bar icon hidden and while editing a text field. Text fields and selectable text support the standard editing shortcuts: ⌘X, ⌘C, ⌘V, ⌘A, ⌘Z, and ⇧⌘Z.
 
 During flashing, ⌘W still closes Settings. Quit asks you to wait for Zapp to finish so it cannot interrupt a firmware write.
 

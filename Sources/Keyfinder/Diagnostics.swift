@@ -466,14 +466,15 @@ import KeyfinderCore
         guard let window = delegate.settingsWindow else { throw KeyfinderError.service("Settings did not open for shortcut verification.") }
         // Exercise AppKit event dispatch with a field editor as first responder.
         let field = NSTextField(frame: NSRect(x: 20, y: 20, width: 240, height: 24))
+        field.stringValue = "keyfinder"
         window.contentView?.addSubview(field)
         defer { field.removeFromSuperview() }
         window.makeFirstResponder(field)
         try await waitUntil { NSApp.keyWindow === window && window.firstResponder is NSTextView }
         let suffix = iconVisible ? "visible_icon" : "hidden_icon"
         var checks: [String: Bool] = [:]
-        func press(_ character: String, keyCode: UInt16) throws {
-            guard let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [.command],
+        func press(_ character: String, keyCode: UInt16, modifiers: NSEvent.ModifierFlags = [.command]) throws {
+            guard let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: modifiers,
                                               timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
                                               context: nil, characters: character, charactersIgnoringModifiers: character,
                                               isARepeat: false, keyCode: keyCode) else {
@@ -481,6 +482,38 @@ import KeyfinderCore
             }
             NSApp.sendEvent(event)
         }
+
+        if let editor = window.firstResponder as? NSTextView {
+            // Cut and Copy write to the general pasteboard; restore its previous contents.
+            let pasteboard = NSPasteboard.general
+            let saved = (pasteboard.pasteboardItems ?? []).map { item in
+                let copy = NSPasteboardItem()
+                for type in item.types { if let data = item.data(forType: type) { copy.setData(data, forType: type) } }
+                return copy
+            }
+            defer { pasteboard.clearContents(); pasteboard.writeObjects(saved) }
+            pasteboard.clearContents()
+            editor.setSelectedRange(NSRange(location: 0, length: 0))
+            try press("a", keyCode: 0)
+            checks["command_a_selects_text_with_\(suffix)"] = editor.selectedRange() == NSRange(location: 0, length: 9)
+            try press("c", keyCode: 8)
+            checks["command_c_copies_text_with_\(suffix)"] = pasteboard.string(forType: .string) == "keyfinder" && editor.string == "keyfinder"
+            try press("x", keyCode: 7)
+            checks["command_x_cuts_text_with_\(suffix)"] = editor.string.isEmpty && pasteboard.string(forType: .string) == "keyfinder"
+            pasteboard.clearContents(); pasteboard.setString("layer", forType: .string)
+            editor.setSelectedRange(NSRange(location: 0, length: (editor.string as NSString).length))
+            try press("v", keyCode: 9)
+            let pasted = editor.string == "layer"
+            checks["command_v_pastes_text_with_\(suffix)"] = pasted
+            try press("z", keyCode: 6)
+            let undone = pasted && editor.string != "layer"
+            checks["command_z_undoes_text_edit_with_\(suffix)"] = undone
+            try press("Z", keyCode: 6, modifiers: [.command, .shift])
+            checks["shift_command_z_redoes_text_edit_with_\(suffix)"] = undone && editor.string == "layer"
+        } else {
+            checks["text_editing_shortcuts_have_field_editor_with_\(suffix)"] = false
+        }
+
         model.showOverlayPreview()
         try press("w", keyCode: 13)
         checks["command_w_closes_settings_with_\(suffix)"] = !window.isVisible

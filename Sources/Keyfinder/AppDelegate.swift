@@ -87,6 +87,19 @@ import KeyfinderCore
         let fileItem = NSMenuItem()
         fileItem.submenu = file
         menu.addItem(fileItem)
+
+        // Text fields find editing commands through the main menu's key equivalents.
+        let edit = NSMenu(title: "Edit")
+        edit.addItem(NSMenuItem(title: "Undo", action: Selector(("undo:")), keyEquivalent: "z"))
+        edit.addItem(NSMenuItem(title: "Redo", action: Selector(("redo:")), keyEquivalent: "Z"))
+        edit.addItem(.separator())
+        edit.addItem(NSMenuItem(title: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x"))
+        edit.addItem(NSMenuItem(title: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c"))
+        edit.addItem(NSMenuItem(title: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v"))
+        edit.addItem(NSMenuItem(title: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a"))
+        let editItem = NSMenuItem()
+        editItem.submenu = edit
+        menu.addItem(editItem)
         NSApp.mainMenu = menu
     }
 

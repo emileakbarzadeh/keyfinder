@@ -159,3 +159,11 @@ The crash at 21:24 and an earlier crash at 14:29 both report `EXC_BAD_ACCESS` in
 A diagnostic subclass records weak references to the actual owners passed to AppKit, then checks them after an autorelease pool drains. Before the fix, owners were released and seven of the nine new tooltip checks failed. After the fix, all nine pass, along with all earlier checks: 115 smoke checks total in the pinned Swift development build. The checks cover owner lifetime, full tooltip text, layer/model changes, resize, disabling and enabling previews, stale callbacks, clearing a layer, and view release. Reports and a reduced crash summary are under `artifacts/tooltip-crash/`.
 
 The release app and DMG also build successfully. The app build passes 16 core tests (4,721 assertions) and 10 packaging tests, and `nix flake check` passes for `aarch64-darwin`. The DMG was mounted read-only and its app copied to `artifacts/tooltip-crash/standalone/Keyfinder.app`; that copy passes strict deep signature verification, the Zapp dependency/help guard, and all 115 smoke checks. The image was detached after verification. The rebuilt DMG is available through `result-tooltip-fix-dmg`.
+
+**Settings editing shortcuts and text cleanup — October 2, 2026**
+
+⌘C, ⌘V, and the other editing shortcuts did nothing in Settings because Keyfinder installs its own main menu, which had no Edit menu. AppKit routes these key equivalents to text fields through that menu. Keyfinder now adds a standard Edit menu with Undo, Redo, Cut, Copy, Paste, and Select All.
+
+Twelve new smoke checks send real key events through `NSApp.sendEvent` to a Settings text field, with the menu bar icon both hidden and visible. They cover ⌘A, ⌘C, ⌘X, ⌘V, ⌘Z, and ⇧⌘Z, and save and restore the general pasteboard. With the previous `AppDelegate`, all twelve fail. With the fix, all 127 smoke checks pass in a debug `swift build` on Apple Silicon. The 32 firmware checks and 16 core tests (4,721 assertions) also pass.
+
+Settings also no longer shows explanatory captions, the supported-keyboard list, the header subtitle, or the duplicated connection status. Errors, warnings, the bootloader reset prompt, and a reworded Performance note remain. All four pages were rendered and inspected in Light and Dark. The release app and DMG were not rebuilt for this change.
