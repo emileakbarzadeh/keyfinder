@@ -13,7 +13,7 @@ The macOS 26.4 SDK comes from the locked Nixpkgs `apple-sdk_26.src` output. Usin
 | Flake output | Use |
 | --- | --- |
 | `packages.<system>.default` / `keyfinder` | Release `.app` under `Applications`, plus `bin/keyfinder` |
-| `packages.<system>.dmg` | Mountable disk image containing the standalone `.app` and an Applications shortcut |
+| `packages.<system>.dmg` | Compressed disk image that opens a drag-to-Applications window |
 | `apps.<system>.default` | Launch the app; arguments pass through unchanged |
 | `apps.<system>.smoke-test` | AppKit checks with temporary windows and simulated USB events |
 | `apps.<system>.firmware-checks` | File validation, subprocess output, and flash lifecycle checks using a separate fake backend |
@@ -87,7 +87,11 @@ The build selects the compiler and SDK from store paths, uses a fixed macOS 26.0
 
 The signing tool is pinned and signs ad hoc without a timestamp server, using a fixed signing time. The package rejects references to its compiler or SDK, keeping those build inputs out of the runtime closure. macOS frameworks and services remain runtime dependencies supplied by the operating system.
 
-[dmg.nix](../nix/dmg.nix) uses pinned `xorriso`/`libisofs` to create an uncompressed HFS+/ISO hybrid disk image with fixed file dates, ownership, volume dates, and a content-derived volume identifier. It needs no disk mounting or host `hdiutil` during the Nix build. A small scoped patch prevents `libisofs` from inventing Finder type/creator metadata, which would invalidate the app's signature. The image preserves the signed app and includes an Applications shortcut for drag-and-drop installation. macOS mounts it directly as a `.dmg`; it is not a ZIP archive.
+[dmg.nix](../nix/dmg.nix) uses pinned `xorriso`/`libisofs` to create an HFS+/ISO hybrid disk image with fixed file dates, ownership, volume dates, and a content-derived volume identifier. A small scoped patch prevents `libisofs` from inventing Finder type/creator metadata, which would invalidate the app's signature. The image preserves the signed app and includes an Applications shortcut for drag-and-drop installation.
+
+When it mounts, Finder opens a window with the app on the left, an arrow, and Applications on the right. Finder normally records that layout in `.DS_Store` while a volume is mounted. [dmg-layout.py](../scripts/dmg-layout.py) writes the same records directly with the pinned `ds_store`, `mac_alias`, and Pillow packages. It also draws the 1x/2x background TIFF. The background uses Keyfinder's light palette because Finder always draws windows with a background picture in Light mode.
+
+Finder opens a window automatically only for read-only UDIF images, not for the raw image `xorriso` writes. Apple's `hdiutil` is part of macOS and cannot be packaged, so [libdmg-hfsplus.nix](../nix/libdmg-hfsplus.nix) builds Mozilla's maintained libdmg-hfsplus to convert the image to zlib-compressed UDIF (UDZO). The converter runs only at build time. Its segment identifier comes from an unseeded `rand()`, keeping the output deterministic. The build never mounts a disk or calls host tools.
 
 Pinned inputs and deterministic packaging make repeatable builds possible. Actual rebuild comparisons, architectures built, and remaining limitations belong in the [verification record](VERIFICATION.md); evaluation alone is not evidence of byte-for-byte reproducibility.
 
@@ -113,7 +117,7 @@ Removing or disabling the module removes its declarative installation and Launch
 
 ## Tag releases
 
-The [release workflow](../.github/workflows/release.yml) runs whenever a Git tag is pushed. It builds natively on macOS 26 for Apple Silicon and Intel, runs `nix flake check`, and builds the `dmg` output with the checked-in lock file and Nix sandbox enabled. It mounts each image read-only, verifies the app and nested helper signatures, checks Zapp’s standalone dependencies and help output, runs the app’s offline diagnostics outside the Nix store, and detaches the image.
+The [release workflow](../.github/workflows/release.yml) runs whenever a Git tag is pushed. It builds natively on macOS 26 for Apple Silicon and Intel, runs `nix flake check`, and builds the `dmg` output with the checked-in lock file and Nix sandbox enabled. It checks each image's checksums with `hdiutil verify`, mounts it read-only, verifies the app and nested helper signatures, checks Zapp’s standalone dependencies and help output, runs the app’s offline diagnostics outside the Nix store, and detaches the image.
 
 Once both builds pass, it publishes a GitHub release with generated release notes and two downloads:
 
