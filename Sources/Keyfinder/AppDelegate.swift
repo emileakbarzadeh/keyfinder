@@ -31,8 +31,7 @@ import KeyfinderCore
             let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
             self.statusItem = statusItem
             statusItem.isVisible = model.preferences.showMenuBarIcon
-            statusItem.button?.image = NSImage(systemSymbolName: "keyboard", accessibilityDescription: "Keyfinder")
-            statusItem.button?.image?.isTemplate = true
+            statusItem.button?.image = Logo.menuBarImage()
             let menu = NSMenu(); menu.delegate = self
             statusLine.isEnabled = false; menu.addItem(statusLine); menu.addItem(.separator())
             let preview = NSMenuItem(title: "Preview keyboard…", action: #selector(openSettings), keyEquivalent: "")

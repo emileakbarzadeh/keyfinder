@@ -39,7 +39,7 @@ import KeyfinderCore
                 return
             }
             if !arguments.isEmpty && arguments != ["--background"] {
-                fputs("Usage: Keyfinder [--background | --diagnostics | --render-previews directory | --render-icon path | --smoke-test report.json | --check-shortcuts report.json | --check-firmware report.json fixture-executable]\n", stderr)
+                fputs("Usage: Keyfinder [--background | --diagnostics | --render-previews directory | --render-icon directory | --smoke-test report.json | --check-shortcuts report.json | --check-firmware report.json fixture-executable]\n", stderr)
                 exit(2)
             }
         } catch {

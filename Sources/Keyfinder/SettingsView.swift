@@ -15,8 +15,7 @@ struct SettingsView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 13) {
-                Image(systemName: "keyboard").font(.system(size: 26, weight: .medium)).foregroundStyle(Color(nsColor: Theme.ink))
-                    .frame(width: 52, height: 52).background(Color(nsColor: Theme.orange), in: RoundedRectangle(cornerRadius: 13))
+                Image(nsImage: Logo.tileImage(size: 52)).frame(width: 52, height: 52).accessibilityHidden(true)
                 Text("Keyfinder").font(.title2.weight(.semibold))
                 Spacer()
                 HStack(spacing: 6) {

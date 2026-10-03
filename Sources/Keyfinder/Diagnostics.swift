@@ -47,27 +47,29 @@ import KeyfinderCore
         try png.write(to: url, options: .atomic)
     }
 
-    static func renderIcon(to url: URL) throws {
-        let image = NSImage(size: NSSize(width: 1024, height: 1024))
-        image.lockFocus()
-        let background = NSBezierPath(roundedRect: NSRect(x: 62, y: 62, width: 900, height: 900), xRadius: 202, yRadius: 202)
-        NSGradient(starting: Theme.dark.key, ending: Theme.ink)?.draw(in: background, angle: -60)
-        for row in 0..<3 {
-            for col in 0..<3 {
-                let selected = row == 1 && col == 1
-                let rect = NSRect(x: 210 + col * 205, y: 210 + row * 205, width: 178, height: 178)
-                let key = NSBezierPath(roundedRect: rect, xRadius: 36, yRadius: 36)
-                (selected ? Theme.orange : row == 2 && col == 2 ? Theme.red : Theme.parchment).setFill(); key.fill()
-                Theme.parchment.withAlphaComponent(0.24).setStroke(); key.lineWidth = 3; key.stroke()
-                if selected {
-                    let mark = NSBezierPath(); mark.move(to: NSPoint(x: rect.minX + 49, y: rect.minY + 92)); mark.line(to: NSPoint(x: rect.minX + 80, y: rect.minY + 62)); mark.line(to: NSPoint(x: rect.minX + 133, y: rect.minY + 118))
-                    Theme.ink.setStroke(); mark.lineWidth = 15; mark.lineCapStyle = .round; mark.lineJoinStyle = .round; mark.stroke()
-                }
+    /// Writes `Keyfinder.iconset` for `iconutil` and the README's `icon.png`.
+    /// Each size is drawn directly rather than downscaled, so small icons stay crisp.
+    static func renderIcon(to directory: URL) throws {
+        let iconset = directory.appendingPathComponent("Keyfinder.iconset", isDirectory: true)
+        try FileManager.default.createDirectory(at: iconset, withIntermediateDirectories: true)
+        func write(_ pixels: Int, to url: URL) throws {
+            guard let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: pixels, pixelsHigh: pixels, bitsPerSample: 8, samplesPerPixel: 4,
+                                             hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0) else {
+                throw KeyfinderError.service("Could not allocate app icon image.")
             }
+            NSGraphicsContext.saveGraphicsState()
+            NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+            Logo.drawIcon(in: NSRect(x: 0, y: 0, width: pixels, height: pixels), showsKeys: pixels >= 64)
+            NSGraphicsContext.restoreGraphicsState()
+            guard let png = rep.representation(using: .png, properties: [:]) else { throw KeyfinderError.service("Could not render app icon.") }
+            try png.write(to: url, options: .atomic)
         }
-        image.unlockFocus()
-        guard let tiff = image.tiffRepresentation, let rep = NSBitmapImageRep(data: tiff), let png = rep.representation(using: .png, properties: [:]) else { throw KeyfinderError.service("Could not render app icon.") }
-        try png.write(to: url, options: .atomic)
+        for points in [16, 32, 128, 256, 512] {
+            try write(points, to: iconset.appendingPathComponent("icon_\(points)x\(points).png"))
+            try write(points * 2, to: iconset.appendingPathComponent("icon_\(points)x\(points)@2x.png"))
+        }
+        try write(192, to: directory.appendingPathComponent("icon.png"))
+        print("Rendered \(iconset.path) and icon.png. Build the app icon with: iconutil -c icns \"\(iconset.path)\" -o Packaging/Keyfinder.icns")
     }
 
     static func runSmokeTest(reportURL: URL) {
@@ -384,6 +386,8 @@ import KeyfinderCore
             let (delegate, model, monitor) = launch()
             defer { delegate.applicationWillTerminate(termination) }
             checks["menu_bar_icon_visible_by_default"] = delegate.statusItem?.isVisible == true
+            checks["menu_bar_icon_is_template_logo"] = delegate.statusItem?.button?.image?.isTemplate == true
+                && delegate.statusItem?.button?.image?.accessibilityDescription == "Keyfinder"
             var hidden = model.preferences; hidden.showMenuBarIcon = false
             model.setPreferences(hidden)
             model.showOverlayPreview()

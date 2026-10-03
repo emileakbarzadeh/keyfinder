@@ -18,6 +18,8 @@ For changes to windows, preferences, or app lifecycle, run `nix run .#smoke-test
 
 For firmware changes, run `nix run .#firmware-checks`. Its separate subprocess fixture never contacts a keyboard. Keep real firmware writes out of automated tests and report hardware acceptance separately. Zapp is included in `nix develop` for source runs; release apps use their bundled copy.
 
+The app icon and menu bar icon are drawn in `Sources/Keyfinder/Logo.swift`. After changing it, run `swift run Keyfinder --render-icon artifacts/icon`, then `iconutil -c icns artifacts/icon/Keyfinder.iconset -o Packaging/Keyfinder.icns`, and copy `artifacts/icon/icon.png` to `docs/assets/icon.png`.
+
 Regenerate the README animation with `nix run .#demo -- --output docs/assets/demo.gif`. The generator uses the bundled synthetic layout and the app's renderer, with Nix-pinned image tools and fonts. Keep the static keyboard preview available alongside the GIF.
 
 ## Changes and verification
