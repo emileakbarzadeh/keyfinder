@@ -90,7 +90,7 @@ struct ZappResult: Sendable {
         // A dedicated worker drains the combined stream before collecting the
         // exit status. No shell, polling, event tap, or main-thread pipe reads.
         return try await withCheckedThrowingContinuation { continuation in
-            DispatchQueue(label: "io.keyfinder.zapp", qos: .userInitiated).async {
+            DispatchQueue(label: "io.github.emileakbarzadeh.keyfinder.zapp", qos: .userInitiated).async {
                 let process = Process()
                 let pipe = Pipe()
                 process.executableURL = executable

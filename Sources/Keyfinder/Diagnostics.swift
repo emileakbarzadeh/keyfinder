@@ -84,7 +84,7 @@ import KeyfinderCore
             var model: AppModel?
             var focusWindow: NSWindow?
             let temporary = FileManager.default.temporaryDirectory.appendingPathComponent("Keyfinder-smoke-\(UUID().uuidString)")
-            let suiteName = "io.keyfinder.smoke.\(UUID().uuidString)"
+            let suiteName = "io.github.emileakbarzadeh.keyfinder.smoke.\(UUID().uuidString)"
             let defaults = UserDefaults(suiteName: suiteName)!
             defer {
                 model?.stop(); focusWindow?.close()
@@ -296,7 +296,7 @@ import KeyfinderCore
 
     private static func checkKeyboardModels(directory: URL) async throws -> [String: Bool] {
         var checks: [String: Bool] = [:]
-        let suiteName = "io.keyfinder.models.\(UUID().uuidString)"
+        let suiteName = "io.github.emileakbarzadeh.keyfinder.models.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defer { defaults.removePersistentDomain(forName: suiteName) }
         let geometry = try KeyboardGeometry.load()
@@ -348,7 +348,7 @@ import KeyfinderCore
 
     private static func checkApplicationLifecycle(geometry: KeyboardGeometry, snapshot: LayoutSnapshot, directory: URL) async throws -> [String: Bool] {
         var checks: [String: Bool] = [:]
-        let suiteName = "io.keyfinder.lifecycle.\(UUID().uuidString)"
+        let suiteName = "io.github.emileakbarzadeh.keyfinder.lifecycle.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         let originalAppearance = NSApp.appearance
         defer {

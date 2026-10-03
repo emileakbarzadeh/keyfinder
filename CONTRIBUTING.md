@@ -1,6 +1,6 @@
 # Contributing to Keyfinder
 
-Keyfinder targets macOS 26 and later. Start with the [architecture](docs/ARCHITECTURE.md) and [Nix packaging guide](docs/NIX.md). Linux support is a future direction; changes to the shared core should avoid unnecessary AppKit dependencies.
+Keyfinder targets macOS 26 and later. Start with the [user guide](docs/USAGE.md) and [Nix packaging guide](docs/NIX.md). Linux support is a future direction; changes to the shared core should avoid unnecessary AppKit dependencies.
 
 ## Development
 

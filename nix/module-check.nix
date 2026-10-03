@@ -39,7 +39,7 @@ assert builtins.elem package enabled.environment.systemPackages;
 assert builtins.elem package manual.environment.systemPackages;
 assert !(manual.launchd.user.agents ? keyfinder);
 assert service.RunAtLoad && !service.KeepAlive;
-assert service.Label == "io.keyfinder.app";
+assert service.Label == "io.github.emileakbarzadeh.keyfinder";
 assert service.LimitLoadToSessionType == "Aqua";
 assert
   service.ProgramArguments == [

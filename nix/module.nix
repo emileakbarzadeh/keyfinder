@@ -34,7 +34,7 @@ in
     launchd.user.agents.keyfinder = lib.mkIf cfg.startAtLogin {
       managedBy = "services.keyfinder.startAtLogin";
       serviceConfig = {
-        Label = "io.keyfinder.app";
+        Label = "io.github.emileakbarzadeh.keyfinder";
         ProgramArguments = [
           "${cfg.package}/Applications/Keyfinder.app/Contents/MacOS/Keyfinder"
           "--background"

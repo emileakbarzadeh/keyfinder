@@ -6,7 +6,7 @@ On first launch, Settings opens with **Keyfinder Demo**, a synthetic three-layer
 
 Turn off **Appearance → Show menu bar icon** to hide the icon immediately. The preference persists across launches and does not pause the overlay or USB monitoring. Open Keyfinder from Applications or Spotlight to show Settings again; this also restores a closed or minimized Settings window when the app is already running. Login-item and `--background` startup do not open Settings. You can restore the icon or quit Keyfinder from the Application section in Appearance.
 
-The app identifier is `io.keyfinder.app`. Earlier development builds used a different identifier, so their preferences, login-item registration, and macOS permissions are not reused. Disable an older build's login item before switching, then configure the new app as needed.
+The app identifier is `io.github.emileakbarzadeh.keyfinder`. Versions 1.0.2 and earlier used `io.keyfinder.app`, so their preferences and login-item registration are not reused. Turn off the older version's launch-at-login toggle before upgrading, then set up the new version.
 
 ## Everyday use
 
@@ -90,6 +90,6 @@ Real device events, system notifications, UI interaction, layout downloads, and 
 
 ## Protocol and geometry references
 
-USB protocol and device identity behavior follow ZSA's [Oryx module](https://github.com/zsa/qmk_modules/tree/main/oryx) and [Zapp](https://github.com/zsa/zapp). Moonlander key coordinates and matrix positions follow the [Moonlander definition](https://github.com/zsa/qmk_firmware/blob/93b2b9ec3368f86c5eb5a2e3f934049f8daef885/keyboards/zsa/moonlander/reva/keyboard.json), with thumb-cluster presentation adjusted for the Moonlander shape. See the [architecture](ARCHITECTURE.md) for pinned protocol references.
+USB protocol and device identity behavior follow ZSA's [Oryx module](https://github.com/zsa/qmk_modules/tree/main/oryx) and [Zapp](https://github.com/zsa/zapp). Moonlander key coordinates and matrix positions follow the [Moonlander definition](https://github.com/zsa/qmk_firmware/blob/93b2b9ec3368f86c5eb5a2e3f934049f8daef885/keyboards/zsa/moonlander/reva/keyboard.json), with thumb-cluster presentation adjusted for the Moonlander shape.
 
 Voyager and ErgoDox EZ use schematic drawings indexed by Oryx key position. Their matrix coordinates are omitted because Keyfinder does not use physical key reports. These new drawings still need verification with real keyboards.

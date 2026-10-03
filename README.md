@@ -99,18 +99,25 @@ Pushing a Git tag builds and checks both architectures, then uploads their disk 
 
 ## nix-darwin
 
-Add Keyfinder to an existing nix-darwin configuration, replacing `/absolute/path/to/keyfinder` with your checkout path:
+The flake provides a nix-darwin module. A complete system flake that installs Keyfinder and starts it at login:
 
 ```nix
 {
-  inputs.keyfinder.url = "path:/absolute/path/to/keyfinder";
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-26.05-darwin";
+    nix-darwin.url = "github:nix-darwin/nix-darwin/nix-darwin-26.05";
+    nix-darwin.inputs.nixpkgs.follows = "nixpkgs";
+    keyfinder.url = "github:emileakbarzadeh/keyfinder";
+  };
 
   outputs = { nix-darwin, keyfinder, ... }: {
-    darwinConfigurations.your-mac = nix-darwin.lib.darwinSystem {
+    darwinConfigurations.my-mac = nix-darwin.lib.darwinSystem {
       modules = [
         keyfinder.darwinModules.default
         {
+          nixpkgs.hostPlatform = "aarch64-darwin"; # "x86_64-darwin" on Intel
           system.primaryUser = "your-username";
+          system.stateVersion = 6;
           services.keyfinder.enable = true;
         }
       ];
@@ -119,7 +126,9 @@ Add Keyfinder to an existing nix-darwin configuration, replacing `/absolute/path
 }
 ```
 
-Keep your existing inputs and modules, then rebuild nix-darwin. Keyfinder is installed in **Applications → Nix Apps** and starts at login for the primary user. Quitting stops it until the next login or service reload.
+Apply it with `sudo darwin-rebuild switch --flake .#my-mac`. In an existing configuration, add the `keyfinder` input, `keyfinder.darwinModules.default`, and `services.keyfinder.enable = true`. Keyfinder builds with its own pinned Nixpkgs, so don't make its `nixpkgs` input follow yours.
+
+Keyfinder is installed in **Applications → Nix Apps** and starts at login for the primary user. Quitting stops it until the next login or service reload.
 
 | Option | Default | Purpose |
 | :--- | :--- | :--- |
@@ -161,6 +170,6 @@ The Swift core handles layouts, labels, USB packet decoding, and caching. AppKit
 
 USB pairing, physical layer changes, and flash/reconnect behavior have not yet been tested with physical keyboards. Checks use protocol fixtures and simulated USB events. A live Oryx fetch was verified for the earlier Moonlander build. [Verification record](docs/VERIFICATION.md).
 
-[Architecture](docs/ARCHITECTURE.md) · [Contributing](CONTRIBUTING.md) · [User guide](docs/USAGE.md) · [Nix packaging](docs/NIX.md)
+[Contributing](CONTRIBUTING.md) · [User guide](docs/USAGE.md) · [Nix packaging](docs/NIX.md) · [Verification](docs/VERIFICATION.md)
 
-Built for [ZSA keyboards](https://www.zsa.io/), using its [Oryx protocol](https://github.com/zsa/qmk_modules/tree/main/oryx). Keyfinder is an independent project.
+Inspired by [corncheese](https://github.com/conroy-cheers). Built for [ZSA keyboards](https://www.zsa.io/), using its [Oryx protocol](https://github.com/zsa/qmk_modules/tree/main/oryx). Keyfinder is an independent project.

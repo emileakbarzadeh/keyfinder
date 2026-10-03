@@ -7,7 +7,7 @@ extension Diagnostics {
         try verifyFirmwareFixture(fixture)
         let temporary = FileManager.default.temporaryDirectory.appendingPathComponent("Keyfinder-flash-checks-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: temporary, withIntermediateDirectories: true)
-        let suite = "io.keyfinder.firmware.\(UUID().uuidString)"
+        let suite = "io.github.emileakbarzadeh.keyfinder.firmware.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         defer { try? FileManager.default.removeItem(at: temporary); defaults.removePersistentDomain(forName: suite) }
         var checks: [String: Bool] = [:]

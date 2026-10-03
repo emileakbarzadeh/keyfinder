@@ -6,7 +6,7 @@ extension Diagnostics {
     @MainActor static func checkHotKeys(directory: URL) async throws -> [String: Bool] {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         var checks: [String: Bool] = [:]
-        let suite = "io.keyfinder.shortcuts.\(UUID().uuidString)"
+        let suite = "io.github.emileakbarzadeh.keyfinder.shortcuts.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let legacy = Data(#"{"width":1100,"opacity":0.8,"showMenuBarIcon":false}"#.utf8)

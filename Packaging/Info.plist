@@ -5,7 +5,7 @@
     <key>CFBundleDevelopmentRegion</key><string>en</string>
     <key>CFBundleDisplayName</key><string>Keyfinder</string>
     <key>CFBundleExecutable</key><string>Keyfinder</string>
-    <key>CFBundleIdentifier</key><string>io.keyfinder.app</string>
+    <key>CFBundleIdentifier</key><string>io.github.emileakbarzadeh.keyfinder</string>
     <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
     <key>CFBundleName</key><string>Keyfinder</string>
     <key>CFBundlePackageType</key><string>APPL</string>
