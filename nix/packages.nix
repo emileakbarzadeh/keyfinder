@@ -98,6 +98,7 @@ let
     ];
     meta = {
       description = "A native ZSA keyboard layer overlay for macOS 26+";
+      license = lib.licenses.gpl3Plus;
       platforms = lib.platforms.darwin;
     };
   };

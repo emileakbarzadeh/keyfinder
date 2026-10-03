@@ -172,4 +172,12 @@ USB pairing, physical layer changes, and flash/reconnect behavior have not yet b
 
 [Contributing](CONTRIBUTING.md) · [User guide](docs/USAGE.md) · [Nix packaging](docs/NIX.md) · [Verification](docs/VERIFICATION.md)
 
+## License
+
+Copyright © 2026 the Keyfinder contributors.
+
+Keyfinder is free software: you can redistribute and modify it under the terms of the [GNU General Public License](LICENSE), version 3 or (at your option) any later version. It comes with no warranty.
+
+Release downloads include ZSA's [Zapp](https://github.com/zsa/zapp), which has its own license (MIT with the Commons Clause). That license ships inside the app under `Contents/Resources/Licenses/Zapp`.
+
 Inspired by [corncheese](https://github.com/conroy-cheers). Built for [ZSA keyboards](https://www.zsa.io/), using its [Oryx protocol](https://github.com/zsa/qmk_modules/tree/main/oryx). Keyfinder is an independent project.

@@ -22,6 +22,8 @@ Regenerate the README animation with `nix run .#demo -- --output docs/assets/dem
 
 ## Changes and verification
 
+Contributions are licensed under the GNU GPL, version 3 or later, the same as the rest of Keyfinder.
+
 Keep commits focused and describe the user-visible behavior, the reason for the change, and the checks performed. Include screenshots for visible UI changes. Separate simulated behavior from hardware observations in reports; a passing fixture test is not evidence of a successful firmware flash or real USB pairing.
 
 Preserve event-driven operation. Avoid polling, repeating timers, idle network requests, and continuous rendering. If a change may affect idle behavior, measure the packaged app with `nix run .#benchmark -- --seconds 30` and record the conditions alongside the results.
