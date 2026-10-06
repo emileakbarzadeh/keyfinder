@@ -50,13 +50,17 @@ Oryx edits reach the live overlay after you flash them. Unflashed revisions can 
 
 ## Performance
 
-Keyfinder sleeps until something happens. There is no polling, no repeating timer, and no continuous rendering.
+Keyfinder's code has no polling, no repeating timer, and no continuous rendering.
 
-| Idle CPU | Idle wakeups | Memory | Download |
+| Idle CPU | Typing CPU | Memory | Download |
 | :---: | :---: | :---: | :---: |
-| **~0.0001%** of one core | **0** per minute | **12 MB** | **4.2 MB** |
+| **~0.005%** of one core | **~0.1%** of one core | **12 MB** | **4.2 MB** |
 
-Measured for v1.1.0 on an M2 Max running macOS 26.6.2: the release build started with `--background`, Settings closed, and no keyboard connected, over two 60-second runs. Startup took 0.09 seconds of CPU. Memory is the footprint shown in Activity Monitor. The installed app is 10 MB, 7.6 MB of which is the bundled Zapp. A connected keyboard and a visible overlay have not been measured yet. [Verification details](docs/VERIFICATION.md).
+Measured for v1.1.0 on an M2 Max running macOS 26.6.2. Idle: the release build started with `--background`, Settings closed, and no keyboard connected, over two 60-second runs. Typing: the running app with a Moonlander connected, sampled during normal typing over two runs. Each key press and release wakes Keyfinder briefly to discard the report, which adds up to about 1 ms of CPU per second of typing. Neither idling nor typing woke the processor from idle.
+
+Drawing the overlay is the most expensive thing Keyfinder does. Showing it or changing its layer takes about 50–75 ms of CPU, and hiding it about 20–30 ms. While it is visible, memory grows by about 20 MB, which is released when it hides. A two-minute typing session that included layer switches averaged 0.7% of one core.
+
+Startup took 0.09 seconds of CPU. Memory is the footprint shown in Activity Monitor. The installed app is 10 MB, 7.6 MB of which is the bundled Zapp. [Verification details](docs/VERIFICATION.md).
 
 Keyfinder only runs code in response to these events:
 
@@ -182,6 +186,7 @@ nix run .#firmware-checks          # File handling and flashing lifecycle with a
 nix run .#previews                 # Render all bundled layers into artifacts/previews
 nix run .#demo                     # Generate the animated demo in artifacts/demo.gif
 nix run .#benchmark -- --seconds 30 # Measure the packaged app from a separate process
+nix run .#benchmark -- --attach    # Profile the running app while you type
 nix develop                       # Pinned compiler, SDK, Python, and Nix formatter
 nix fmt
 ```

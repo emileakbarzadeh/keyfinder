@@ -28,7 +28,7 @@ Contributions are licensed under the GNU GPL, version 3 or later, the same as th
 
 Keep commits focused and describe the user-visible behavior, the reason for the change, and the checks performed. Include screenshots for visible UI changes. Separate simulated behavior from hardware observations in reports; a passing fixture test is not evidence of a successful firmware flash or real USB pairing.
 
-Preserve event-driven operation. Avoid polling, repeating timers, idle network requests, and continuous rendering. If a change may affect idle behavior, measure the packaged app with `nix run .#benchmark -- --seconds 30` and record the conditions alongside the results.
+Preserve event-driven operation. Avoid polling, repeating timers, idle network requests, and continuous rendering. If a change may affect idle behavior, measure the packaged app with `nix run .#benchmark -- --seconds 30` and record the conditions alongside the results. If it may affect the cost of keyboard reports or the overlay, run `nix run .#benchmark -- --attach` while the keyboard is connected and you type. Extend `scripts/measure-performance.py` rather than adding another measurement script: on Apple Silicon the kernel's CPU-time counters are Mach ticks, not nanoseconds, and it converts and checks them.
 
 ## Fixtures and reports
 

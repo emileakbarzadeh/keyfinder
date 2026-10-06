@@ -144,7 +144,7 @@ let
   benchmark = pkgs.writeShellApplication {
     name = "keyfinder-benchmark";
     text = ''
-      exec ${pkgs.python3}/bin/python3 ${../scripts/measure-idle.py} \
+      exec ${pkgs.python3}/bin/python3 ${../scripts/measure-performance.py} \
         --app ${keyfinder}/Applications/Keyfinder.app "$@"
     '';
   };

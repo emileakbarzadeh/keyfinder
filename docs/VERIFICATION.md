@@ -28,11 +28,13 @@ Measured for v1.1.0 on an M2 Max running macOS 26.6.2. The release build ran wit
 
 | Metric | Run 1 | Run 2 |
 | --- | --- | --- |
-| CPU time in 60 seconds | 65 µs | 97 µs |
-| Average CPU | 0.000108% of one core | 0.000161% of one core |
+| CPU time in 60 seconds | 2.7 ms | 4.0 ms |
+| Average CPU | 0.0045% of one core | 0.0067% of one core |
 | Context switches | 30 | 41 |
 | Mach messages received | 4 | 6 |
 | Threads | 4 | 4 |
+
+The CPU figures were first published as 65 µs and 97 µs. The benchmark had divided the kernel's CPU counters by 10⁹, but on Apple Silicon they count Mach ticks of 125/3 ns, so those figures were about 42 times too low. The values above convert the same raw counters correctly. The benchmark now converts them and checks its total against `ps` on every run.
 
 | Metric | Observed |
 | --- | --- |
@@ -42,7 +44,28 @@ Measured for v1.1.0 on an M2 Max running macOS 26.6.2. The release build ran wit
 | App bundle | 10 MB, including the 7.6 MB Zapp helper |
 | Disk image | 4.2 MB |
 
-A connected keyboard, a visible overlay, and typing have not been measured. A source audit found no repeating timers, polling loops, background URL sessions, event taps, or continuous rendering. The only scheduled delays are a one-shot connection deadline and the optional appearance delay.
+A source audit found no repeating timers, polling loops, background URL sessions, event taps, or continuous rendering. The only scheduled delays are a one-shot connection deadline and the optional appearance delay.
+
+### Typing and overlay performance
+
+Measured for v1.1.0 on the same Mac with a Moonlander connected. `scripts/measure-performance.py --attach` sampled the installed app once per second while it had been running for 2 days 17 hours, with Settings closed. Each run began with the keyboard untouched, followed by normal typing; the second run also switched layers. Seconds with the overlay on screen, or with 8 or more Mach messages, count as overlay activity. Other seconds with 5 or more context switches count as typing.
+
+| Metric | Run 1 (300 s) | Run 2 (180 s) |
+| --- | --- | --- |
+| Connected, untouched: CPU | 0.0038% of one core (262 s) | 0.0091% of one core (52 s) |
+| Typing: CPU | 0.10% of one core (38 s) | 0.11% of one core (114 s) |
+| Typing: energy | 0.17 mW | 0.19 mW |
+| Typing: context switches | 17 per second | 25 per second |
+| Overlay activity | None | 14 s; 740 ms of CPU and 290 mJ in total |
+| Package idle wakeups | 1 | 0 |
+| Memory footprint | 44.1 MB throughout | 44.2 MB; 63.7 MB peak while the overlay was visible |
+
+- **Typing:** the median typing second used 1.05 ms of CPU, and the 90th percentile 2 ms.
+- **Overlay:** each show or layer change while visible executed about 148 million instructions, 50–75 ms of CPU on the main thread. Each hide executed about 44 million instructions, 20–30 ms. Memory returned to 44.2 MB after the overlay hid.
+- **Memory:** this long-running instance had a 44 MB footprint, compared with 12 MB after a fresh launch, and a lifetime peak of 90 MB. Typing did not change it.
+- **Periodic wake:** the process woke about every 3 seconds whether or not the keyboard was in use, for 50–120 µs each time. That is 0.35 timer wakeups per second, with almost no package idle wakeups. Keyfinder's source schedules no repeating timer, and a stack sample showed libdispatch servicing a timer. The idle runs' 30–41 context switches per minute are consistent with the same wake.
+
+CPU and energy are those billed to Keyfinder. Kernel USB handling and WindowServer compositing are not included. Reports are written under `artifacts/performance/`.
 
 ## Not yet verified
 
@@ -63,6 +86,7 @@ nix flake check
 nix run .#smoke-test
 nix run .#firmware-checks
 nix run .#benchmark -- --seconds 30
+nix run .#benchmark -- --attach --seconds 180
 nix build . .#dmg --rebuild --no-link
 nix build
 codesign --verify --strict result/Applications/Keyfinder.app
